@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion } from './reglas.js';
 
-const VERSION = '0.19.11';
+const VERSION = '0.19.12';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 

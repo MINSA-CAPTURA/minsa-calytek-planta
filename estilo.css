@@ -175,6 +175,9 @@ input[type="text"], input[type="number"], select, textarea {
 }
 input.mono { font-family: var(--mono); font-weight: 500; letter-spacing: .02em; text-transform: uppercase; }
 input.fecha { max-width: 11rem; font-variant-numeric: tabular-nums; }
+/* El placeholder se distingue del dato (Carlos, 2026-09-08: «parece que ya está pre-llenado»): más claro, en cursiva,
+   sin mayúsculas forzadas ni peso del campo mono. opacity 1 porque Safari/Chrome lo atenúan encima del color. */
+input::placeholder, textarea::placeholder { color: var(--faint); opacity: 1; font-style: italic; font-weight: 400; text-transform: none; letter-spacing: 0; font-family: var(--texto); }
 textarea { min-height: 4.5rem; resize: vertical; }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 .dos { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
