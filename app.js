@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion } from './reglas.js';
 
-const VERSION = '0.19.9';
+const VERSION = '0.19.10';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -1046,11 +1046,36 @@ function pintarPrealtas() {
 }
 
 function nuevaPrealta() {
+    estado.prealtaEdit = null;
+    $('paFormaTitulo').textContent = 'Nueva pre-alta'; $('btnGuardarPrealta').textContent = 'Guardar como borrador';
     opciones($('paCarrier'), estado.carriers.filter(c => c.Activo !== false), c => c.id, c => c.Title);
     pintarUnidadesChoferesPrealta();
     for (const id of ['paTitulo', 'paGenerador', 'paGeneradorRegistro', 'paPozo', 'paFecha', 'paGondolas', 'paCorreoFecha', 'paCorreoRemitente', 'paNotas']) $(id).value = '';
     $('paCorriente').value = '';
     pintarEstadoPrealta();
+    abrirForma('paForma');
+}
+/**
+ * Editar un BORRADOR (v0.19.10, Carlos 2026-09-08: «ver el borrador no me da la opcion de editarlo»). Mismo
+ * formulario que la alta, con `estado.prealtaEdit`; guardar es un PATCH que conserva Estado, Campana y quien capturo.
+ * Una firmada no se edita: la puerta ya la usa; se cierra y se abre otra.
+ */
+function editarPrealta() {
+    const p = estado.prealtaAbierta; if (!p || p.Estado !== 'borrador' || !PUEDE.capturarPrealta(estado.rol)) return;
+    estado.prealtaEdit = p;
+    $('paFormaTitulo').textContent = `Editar pre-alta: ${p.Title}`; $('btnGuardarPrealta').textContent = 'Guardar cambios';
+    opciones($('paCarrier'), estado.carriers.filter(c => c.Activo !== false || Number(c.id) === Number(p.CarrierId)), c => c.id, c => c.Title);
+    const f = v => v === null || v === undefined ? '' : String(v);
+    $('paTitulo').value = f(p.Title); $('paCorriente').value = f(p.Corriente); $('paGenerador').value = f(p.Generador);
+    $('paGeneradorRegistro').value = f(p.GeneradorRegistro); $('paPozo').value = f(p.Pozo); $('paCarrier').value = f(p.CarrierId);
+    $('paFecha').value = p.FechaEstimada ? fechaCorta(p.FechaEstimada) : ''; $('paGondolas').value = f(p.GondolasEsperadas);
+    $('paCorreoFecha').value = p.CorreoFecha ? fechaCorta(p.CorreoFecha) : ''; $('paCorreoRemitente').value = f(p.CorreoRemitente); $('paNotas').value = f(p.Notas);
+    pintarUnidadesChoferesPrealta();
+    // Se marcan las que la pre-alta ya tenia; si no tenia ninguna guardada, quedan todas (es lo que la puerta entiende).
+    for (const [cont, ids] of [['paUnidades', lista(p.UnidadesIds)], ['paChoferes', lista(p.ChoferesIds)]])
+        if (ids.length) for (const c of $(cont).querySelectorAll('input')) c.checked = ids.includes(c.value);
+    pintarEstadoPrealta();
+    $('paDetalle').classList.add('oculto');
     abrirForma('paForma');
 }
 function pintarUnidadesChoferesPrealta() {
@@ -1091,8 +1116,25 @@ async function guardarPrealta() {
     if (!PUEDE.capturarPrealta(estado.rol)) { avisar('Tu rol no captura pre-altas.', 'error'); return; }
     if (!$('paTitulo').value.trim() || !$('paCorriente').value || !$('paCarrier').value) { avisar('Faltan nombre, corriente o carrier.', 'error'); return; }
     $('btnGuardarPrealta').disabled = true;
+    const edit = estado.prealtaEdit && estado.prealtaEdit.Estado === 'borrador' ? estado.prealtaEdit : null;
     try {
         await refrescarCliente();
+        if (edit) {
+            const cambios = paraPatch({
+                Title: $('paTitulo').value.trim(), Generador: $('paGenerador').value.trim(), GeneradorRegistro: $('paGeneradorRegistro').value.trim(),
+                Pozo: $('paPozo').value.trim(), Corriente: $('paCorriente').value, CarrierId: Number($('paCarrier').value),
+                UnidadesIds: marcados('paUnidades'), ChoferesIds: marcados('paChoferes'),
+                FechaEstimada: aIsoDia($('paFecha').value), GondolasEsperadas: $('paGondolas').value ? Number($('paGondolas').value) : null,
+                CorreoFecha: aIsoDia($('paCorreoFecha').value), CorreoRemitente: $('paCorreoRemitente').value.trim(), Notas: $('paNotas').value.trim()
+            });
+            await estado.cliente.actualizarRenglon(estado.siteId, L.prealtas, edit.id, cambios);
+            Object.assign(edit, cambios);
+            estado.prealtaEdit = null;
+            cerrarForma('paForma');
+            avisar('Borrador actualizado. Sigue pendiente de firma.', 'bien');
+            pintarPrealtas(); verPrealta(edit);
+            return;
+        }
         const campos = limpiar({
             Title: $('paTitulo').value.trim(), Estado: 'borrador', Generador: $('paGenerador').value.trim(),
             GeneradorRegistro: $('paGeneradorRegistro').value.trim(), Pozo: $('paPozo').value.trim(),
@@ -1143,6 +1185,7 @@ function verPrealta(p) {
     for (const h of hallazgos) { const li = el('li', '', h.regla + ' '); li.appendChild(etiqueta(h.clase, h.clase)); li.appendChild(el('span', 'd', h.detalle)); vg.appendChild(li); }
     const hayLegal = hallazgos.some(h => h.clase === 'legal');
     $('btnFirmar').classList.toggle('oculto', !(p.Estado === 'borrador' && PUEDE.firmarPrealta(estado.rol)));
+    $('btnEditarPrealta').classList.toggle('oculto', !(p.Estado === 'borrador' && PUEDE.capturarPrealta(estado.rol)));
     $('btnFirmar').disabled = hayLegal;
     if (hayLegal && p.Estado === 'borrador') avisar('No se puede firmar con un hallazgo legal abierto: corrige el padrón (con el oficio a la vista) o cambia el carrier.', 'ojo');
     $('btnCerrarPrealta').classList.toggle('oculto', !(p.Estado === 'firmada' && PUEDE.capturarPrealta(estado.rol)));
@@ -1823,6 +1866,7 @@ for (const clave of Object.keys(FORMA_PADRON)) $(FORMA_PADRON[clave].forma).addE
 $('btnFirmar').addEventListener('click', firmarPrealta);
 $('btnCerrarPrealta').addEventListener('click', cerrarPrealta);
 $('btnEliminarPrealta').addEventListener('click', eliminarPrealta);
+$('btnEditarPrealta').addEventListener('click', editarPrealta);
 $('btnVolverPrealtas').addEventListener('click', pintarPrealtas);
 $('btnNuevoCarrier').addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); abrirFormaPadron('carriers'); });
 $('btnCancelarCarrier').addEventListener('click', () => cerrarFormaPadron('carriers'));

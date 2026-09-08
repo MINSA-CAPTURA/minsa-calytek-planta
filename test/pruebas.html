@@ -313,6 +313,18 @@ try {
         await esperar(() => avisoCon('Pre-alta guardada como borrador'), 'pre-alta guardada');
         R.ok('pre-alta en borrador con campaña L-AA-NNN', /^L-\d\d-\d{3}$/.test(filas('prealtas')[0].fields.Campana), filas('prealtas')[0].fields.Campana);
         R.ok('pre-alta liga unidades y choferes del carrier', filas('prealtas')[0].fields.UnidadesIds === String(unidadId) && filas('prealtas')[0].fields.ChoferesIds === String(choferId));
+        // Editar el borrador (v0.19.10): PATCH que conserva la campana y el estado.
+        const campanaAntes = filas('prealtas')[0].fields.Campana;
+        document.querySelector('#paBorradores .renglon button').click();
+        await esperar(() => visible('paDetalle'), 'detalle del borrador');
+        R.ok('el detalle de un borrador ofrece Editar', visible('btnEditarPrealta'));
+        clic('btnEditarPrealta'); await esperar(() => $('paForma').open, 'formulario de edición');
+        R.ok('el formulario abre con los datos del borrador', $('paTitulo').value === 'Cliente Demo · Pozo-1 · oct-2026' && $('paPozo').value === 'Pozo-1' && $('paCarrier').value === String(carrierId));
+        poner('paPozo', 'Pozo-2'); poner('paGondolas', '12'); clic('btnGuardarPrealta');
+        await esperar(() => avisoCon('Borrador actualizado'), 'borrador actualizado');
+        const pe = filas('prealtas')[0].fields;
+        R.ok('editar el borrador cambia pozo y góndolas y conserva campaña, estado y unidades', pe.Pozo === 'Pozo-2' && pe.GondolasEsperadas === 12 && pe.Campana === campanaAntes && pe.Estado === 'borrador' && pe.UnidadesIds === String(unidadId) && filas('prealtas').length === 1, JSON.stringify([pe.Pozo, pe.GondolasEsperadas, pe.Campana, pe.Estado]));
+        clic('btnVolverPrealtas');
     } else {
         R.ok('rol sin captura: no hay botón Nueva pre-alta', !visible('btnNuevaPrealta'));
     }
