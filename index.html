@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" id="metaTema" content="#f5f5f7">
+<!-- CSP estricta, misma que minsa-captura-app: sin scripts ni estilos en linea. Las fuentes van
+     vendorizadas en ./vendor/fuentes (OFL), por eso font-src sigue en 'self'. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self';
+  style-src 'self';
+  img-src 'self' blob: data:;
+  font-src 'self';
+  connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com;
+  frame-src https://login.microsoftonline.com;
+  form-action 'none';
+  base-uri 'none';
+  object-src 'none'">
+<title>CALYTEK Planta</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./iconos/icono-192.png">
+<link rel="apple-touch-icon" href="./iconos/icono-192.png">
+<link rel="stylesheet" href="./estilo.css">
+</head>
+<body>
+
+<!-- Un solo DOM para celular y computadora. El CSS decide con @media (min-width: 900px):
+     abajo, el rail es barra de pestañas; arriba, columna izquierda. -->
+<div class="app">
+
+  <aside id="rail" class="rail oculto">
+    <div class="marca"><img class="logo solo-claro" src="./marca/lockup.svg" alt="MINSA ENERGY" width="724" height="256"><img class="logo solo-oscuro" src="./marca/lockup-oscuro.svg" alt="MINSA ENERGY" width="724" height="256"><span>CALYTEK · Planta</span></div>
+    <nav id="pestanas" role="tablist" aria-label="Secciones">
+      <button type="button" data-p="hoy" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 15l5-5 4 4 7-7"/></svg><span>Hoy</span></button>
+      <button type="button" data-p="puerta" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-7h6v7"/></svg><span>Puerta</span></button>
+      <button type="button" data-p="bascula" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 20V9l6-4 6 4v11"/><path d="M12 5v15"/></svg><span>Báscula</span><b class="n" id="nBascula" hidden></b></button>
+      <button type="button" data-p="prealtas" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg><span>Pre-altas</span><b class="n" id="nPrealtas" hidden></b></button>
+      <button type="button" data-p="padron" role="tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h13l5 5v5H3z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg><span>Padrón</span></button>
+    </nav>
+    <div class="sesion"><span id="quien" class="quien"></span><span class="sync" id="syncRail"></span><div class="sesion-botones"><button id="btnActualizar" class="salir" type="button" title="Volver a leer las listas">Actualizar</button><button id="btnSalir" class="salir" type="button">Salir</button><div class="tema" role="group" aria-label="Tema"><button type="button" data-tema="claro" title="Claro" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button type="button" data-tema="oscuro" title="Oscuro" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div></div></div>
+  </aside>
+
+  <main class="contenido">
+    <!-- En celular el rail es la barra de abajo y no cabe la sesión: esta tira arriba trae quién
+         entró, Actualizar y Salir. En computadora se oculta (lo mismo vive en el rail). -->
+    <!-- I5 (7-sep): logo, rol y un solo botón «···» que abre Actualizar, el tema y Salir; debajo, cuándo se leyeron los datos. -->
+    <div id="barraMovil" class="barra-movil oculto"><span class="logo chica"><img class="logo solo-claro" src="./marca/lockup.svg" alt="MINSA ENERGY" width="724" height="256"><img class="logo solo-oscuro" src="./marca/lockup-oscuro.svg" alt="MINSA ENERGY" width="724" height="256"></span><span class="rol-movil" id="rolMovil"></span><details class="menu-movil" id="menuMovil"><summary aria-label="Menú">···</summary><div class="menu-caja"><button id="btnActualizarMovil" type="button">Actualizar ahora</button><div class="tema" role="group" aria-label="Tema"><button type="button" data-tema="claro" title="Claro" aria-pressed="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><button type="button" data-tema="oscuro" title="Oscuro" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div><button id="btnSalirMovil" type="button">Salir</button></div></details></div>
+    <p class="sync oculto" id="syncMovil"></p>
+    <div id="avisos"></div>
+
+    <!-- Entrar -->
+    <section id="pantallaEntrar" class="entrada">
+      <div class="entrada-rejilla" aria-hidden="true"></div>
+      <div class="entrada-caja">
+        <div class="entrada-arriba"><img class="logo" src="./marca/lockup-oscuro.svg" alt="MINSA ENERGY" width="724" height="256"></div>
+        <div class="entrada-abajo">
+          <h1 class="entrada-titulo">Recepción<br>bajo <em>control.</em></h1>
+          <p class="lema">Pre-alta, compuerta documental y báscula, en un solo lugar.</p>
+          <div class="semaforo-demo" aria-hidden="true"><span class="ok">Pasa</span><span class="warn">Espera</span><span class="bad">No entra</span></div>
+          <button id="btnEntrar" class="principal" type="button">Entrar con cuenta MINSA</button>
+          <p class="pista" id="textoEntrar">CALYTEK · Planta</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOY -->
+    <section id="p-hoy" class="oculto">
+      <header class="cabecera"><span class="k" id="hoyKicker">Hoy</span><h1 id="hoyTitulo">Hoy</h1></header>
+      <div id="hoyFranja" class="franja oculto"></div>
+      <div class="kpis" id="tbKpis"></div>
+      <div class="cols">
+        <div class="tarjeta">
+          <div class="h2-con-boton"><h2>Fila del día</h2><button id="btnExportar" class="alta oculto" type="button" title="Descarga en CSV todo lo cargado (la ventana de días más lo abierto)">Exportar CSV</button></div>
+          <div class="tabla-scroll" id="tbFila"></div>
+          <div class="fila-tarjetas" id="tbFilaTarjetas"></div>
+        </div>
+        <div class="pila">
+          <div class="tarjeta"><h2>Te toca a alguien</h2><div id="tbPendientes"></div></div>
+          <div class="tarjeta"><h2>Vigencias a 30 días</h2><div id="tbVigencias"></div></div>
+          <div class="tarjeta"><h2>Rechazos y excepciones recientes</h2><div id="tbRechazos"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PUERTA -->
+    <section id="p-puerta" class="oculto">
+      <header class="cabecera"><span class="k">Puerta · paso 1 de 3</span><h1>Qué llegó</h1></header>
+      <!-- Tres bloques numerados (G3) + la lista viva de reglas (G4), elegidas por Carlos 2026-09-05.
+           Los ids de los campos no cambiaron: solo se agruparon. -->
+      <div class="tarjeta forma">
+        <div class="bloque" id="puBloque1">
+          <div class="bt"><span class="bn">1</span><h2>Programa</h2><span class="est" id="puEst1"></span></div>
+          <div class="campo">
+            <label for="puPrealta">Programa (pre-alta firmada)</label>
+            <select id="puPrealta"></select>
+            <p class="pista">Solo salen las firmadas. Si el programa no está, se captura y se firma primero.</p>
+          </div>
+        </div>
+        <div class="bloque" id="puBloque2">
+          <div class="bt"><span class="bn">2</span><h2>Vehículo y chofer</h2><span class="est" id="puEst2"></span></div>
+          <!-- I6 (7-sep): las unidades que la pre-alta autorizó; tocar una llena las dos placas. Teclearlas sigue siendo posible. -->
+          <div class="campo"><span class="etiqueta-campo" id="puUnidadesTitulo">Unidad del carrier</span><div id="puUnidades" class="unidades-puerta"></div></div>
+          <div class="dos">
+            <div class="campo"><label for="puPlaca">Placa tractor</label><input type="text" id="puPlaca" class="mono" autocapitalize="characters" placeholder="55XY9K"></div>
+            <div class="campo"><label for="puPlacaPlana">Placa plana / caja</label><input type="text" id="puPlacaPlana" class="mono" autocapitalize="characters" placeholder="66ZW3M"></div>
+          </div>
+          <div class="campo"><label for="puChofer">Chofer</label><select id="puChofer"></select></div>
+          <div class="campo"><label for="puChoferNombre">Nombre como aparece en la licencia</label><input type="text" id="puChoferNombre" autocapitalize="words"></div>
+        </div>
+        <div class="bloque" id="puBloque3">
+          <div class="bt"><span class="bn">3</span><h2>Carga</h2><span class="est" id="puEst3"></span></div>
+          <div class="campo">
+            <label for="puManifiesto">No. de manifiesto</label>
+            <input type="text" id="puManifiesto" class="mono" autocapitalize="characters" placeholder="MINSA/RME/105/2025">
+          </div>
+          <div class="campo">
+            <label for="puCorriente">Corriente declarada en el manifiesto</label>
+            <select id="puCorriente">
+              <option value="">— elige —</option>
+              <option value="base-agua">Recorte base agua</option>
+              <option value="base-aceite">Recorte base aceite</option>
+              <option value="fluidos-base-agua">Fluido agotado base agua</option>
+              <option value="fluidos-base-aceite">Fluido agotado base aceite</option>
+            </select>
+          </div>
+          <label class="chk"><input type="checkbox" id="pu79"> El residuo viene identificado, etiquetado y envasado (art. 79)</label>
+        </div>
+      </div>
+      <!-- La MISMA evaluacion que corre el boton, en vivo. No decide nada: solo adelanta lo que va a salir. -->
+      <div class="tarjeta revisa" id="puPrevio">
+        <span class="lbl">Lo que va a revisar</span>
+        <ul class="reglas" id="puPrevioReglas"></ul>
+        <p class="cuenta" id="puPrevioCuenta"></p>
+        <button id="btnCompuerta" class="principal enviar" type="button">Correr la compuerta</button>
+      </div>
+    </section>
+
+    <!-- BASCULA -->
+    <section id="p-bascula" class="oculto">
+      <header class="cabecera"><span class="k">Báscula</span><h1>En planta</h1></header>
+      <div class="tarjeta">
+        <p class="pista sin-margen">Góndolas que pasaron la compuerta y no han cerrado su folio.</p>
+        <div id="baLista"></div>
+      </div>
+      <!-- Cerrados (2026-09-08): el ticket ya emitido se vuelve a ver e imprimir desde aquí, dentro de la
+           ventana cargada (CONFIG.ventanaDias). El archivo completo vive en SharePoint; esto es reimpresión. -->
+      <div class="padron">
+        <details class="grupo" id="baGrupoCerrados">
+          <summary><span class="ic ce">CE</span><span class="t"><b>Cerrados</b><small id="baResCerrados"></small></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary>
+          <div class="gcuerpo">
+            <div class="busca destacada"><input type="search" id="baBusca" placeholder="Buscar folio, placa o manifiesto" autocomplete="off" aria-label="Buscar entre los cerrados"><span class="cuenta" id="baBuscaCuenta"></span></div>
+            <div id="baCerrados"></div>
+          </div>
+        </details>
+      </div>
+      <div class="tarjeta oculto pesaje" id="baPesar">
+        <h2 id="baTitulo"></h2>
+        <p class="pista" id="baSub"></p>
+        <div class="peso">
+          <label for="baKg" id="baKgLabel">Peso (kg)</label>
+          <input type="number" id="baKg" inputmode="numeric" min="0" step="1" placeholder="0">
+          <span class="unidad">kg</span>
+        </div>
+        <div class="neto-vivo oculto" id="baNetoVivo"><span>Bruto <b id="baNvBruto"></b></span><span>Neto <b id="baNvNeto"></b></span><span id="baNvCapBox">Cap. <b id="baNvCap"></b></span></div>
+        <p class="pista">Solo kilogramos enteros, nunca m³. Lo que marca el indicador, ahora.</p>
+        <div class="teclado" id="teclado" aria-label="Teclado numérico">
+          <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+          <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+          <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+          <button type="button" data-k="0">0</button><button type="button" data-k="00">00</button><button type="button" data-k="borrar" class="borrar" aria-label="Borrar">⌫</button>
+        </div>
+        <div class="campo foto-fila" id="baFotoFila">
+          <img id="baFotoPrevia" class="foto-previa oculto" alt="">
+          <div class="foto-texto"><span class="etiqueta-campo">Foto del indicador · obligatoria</span><small id="baFotoEstado">Sin foto todavía</small></div>
+          <button id="btnFoto" class="secundario" type="button">Tomar foto</button>
+          <input type="file" id="baFotoEntrada" accept="image/*" capture="environment" hidden>
+        </div>
+        <div id="baAvisoNeto" class="mensaje ojo oculto"></div>
+        <div class="campo oculto" id="baMotivoNetoCampo">
+          <label for="baMotivoNeto">Si el neto se sale de la banda, di por qué se cierra igual</label>
+          <textarea id="baMotivoNeto" maxlength="200"></textarea>
+        </div>
+        <button id="btnGuardarPeso" class="principal enviar" type="button">Guardar</button>
+        <div id="avance" class="oculto"><span id="textoAvance"></span><div class="barra"><div id="barraAvance"></div></div></div>
+        <button id="btnCancelarPeso" class="secundario" type="button">Cancelar</button>
+      </div>
+      <div class="tarjeta oculto" id="baTicketCaja">
+        <h2>Ticket de báscula</h2>
+        <div id="ticket" class="ticket"></div>
+        <button id="btnImprimir" class="principal enviar" type="button">Imprimir / guardar PDF</button>
+      </div>
+    </section>
+
+    <!-- PRE-ALTAS -->
+    <section id="p-prealtas" class="oculto">
+      <header class="cabecera"><span class="k">Pre-altas</span><h1>Programas</h1></header>
+      <!-- Acordeones por ESTADO, calcados del Padrón (P2, elegida por Carlos 2026-09-05).
+           Cada renglón lleva su avance de góndolas (recibidas / esperadas) y el grupo suma el total. -->
+      <div class="padron">
+      <details class="grupo" id="paGrupoBorradores">
+        <summary><span class="ic bo">BO</span><span class="t"><b>Borradores</b><small id="paResBorradores"></small></span><button id="btnNuevaPrealta" class="alta" type="button">+ Nueva</button><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="gcuerpo">
+          <div id="paBorradores"></div>
+      <div class="tarjeta forma oculto" id="paForma">
+        <h2 id="paFormaTitulo">Nueva pre-alta</h2>
+        <!-- Cuatro bloques numerados, el mismo lenguaje que la puerta (I4 de la auditoría del 7-sep). Los ids no cambiaron. -->
+        <div class="bloque" id="paBloque1">
+          <div class="bt"><span class="bn">1</span><h2>Programa</h2><span class="est" id="paEst1"></span></div>
+          <div class="campo"><label for="paTitulo">Nombre del programa</label><input type="text" id="paTitulo" placeholder="Cliente · Pozo · mes"></div>
+          <div class="campo"><label for="paCorriente">Corriente</label>
+            <select id="paCorriente">
+              <option value="">— elige —</option>
+              <option value="base-agua">Recorte base agua</option>
+              <option value="base-aceite">Recorte base aceite</option>
+              <option value="fluidos-base-agua">Fluido agotado base agua</option>
+              <option value="fluidos-base-aceite">Fluido agotado base aceite</option>
+            </select></div>
+        </div>
+        <div class="bloque" id="paBloque2">
+          <div class="bt"><span class="bn">2</span><h2>Generador y origen</h2><span class="est" id="paEst2"></span></div>
+          <div class="campo"><label for="paGenerador">Generador (razón social)</label><input type="text" id="paGenerador"></div>
+          <div class="dos">
+            <div class="campo"><label for="paGeneradorRegistro">No. registro ASEA</label><input type="text" id="paGeneradorRegistro" class="mono" placeholder="09-ASEA-GRME-1971-2019"></div>
+            <div class="campo"><label for="paPozo">Pozo / instalación</label><input type="text" id="paPozo"></div>
+          </div>
+        </div>
+        <div class="bloque" id="paBloque3">
+          <div class="bt"><span class="bn">3</span><h2>Transporte</h2><span class="est" id="paEst3"></span></div>
+          <div class="campo"><label for="paCarrier">Carrier (del padrón)</label><select id="paCarrier"></select></div>
+          <div class="campo"><span class="etiqueta-campo">Unidades autorizadas</span><div id="paUnidades"></div></div>
+          <div class="campo"><span class="etiqueta-campo">Choferes autorizados</span><div id="paChoferes"></div></div>
+        </div>
+        <div class="bloque" id="paBloque4">
+          <div class="bt"><span class="bn">4</span><h2>Logística y correo</h2><span class="est" id="paEst4"></span></div>
+          <div class="dos">
+            <div class="campo"><label for="paFecha">Primer envío (estimado)</label><input type="text" id="paFecha" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+            <div class="campo"><label for="paGondolas">Góndolas esperadas</label><input type="number" id="paGondolas" min="0"></div>
+          </div>
+          <div class="dos">
+            <div class="campo"><label for="paCorreoFecha">Fecha del correo del cliente</label><input type="text" id="paCorreoFecha" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+            <div class="campo"><label for="paCorreoRemitente">Remitente</label><input type="text" id="paCorreoRemitente"></div>
+          </div>
+          <div class="campo"><label for="paNotas">Notas</label><textarea id="paNotas"></textarea></div>
+        </div>
+        <button id="btnGuardarPrealta" class="principal enviar" type="button">Guardar como borrador</button>
+        <button id="btnCancelarPrealta" class="secundario" type="button">Cancelar</button>
+      </div>
+        </div>
+      </details>
+      <details class="grupo" id="paGrupoFirmadas">
+        <summary><span class="ic fi">FI</span><span class="t"><b>Firmadas</b><small id="paResFirmadas"></small></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="gcuerpo"><div id="paFirmadas"></div></div>
+      </details>
+      <details class="grupo" id="paGrupoCerradas">
+        <summary><span class="ic ce">CE</span><span class="t"><b>Cerradas</b><small id="paResCerradas"></small></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="gcuerpo"><div id="paCerradas"></div></div>
+      </details>
+      </div>
+      <div class="tarjeta oculto" id="paDetalle">
+        <h2 id="paDetalleTitulo"></h2>
+        <ul class="hallazgos" id="paDetalleLista"></ul>
+        <ul class="hallazgos" id="paDetalleVigencias"></ul>
+        <button id="btnFirmar" class="principal enviar oculto" type="button">Firmar la pre-alta</button>
+        <button id="btnCerrarPrealta" class="secundario oculto" type="button">Cerrar el programa</button>
+        <button id="btnEliminarPrealta" class="secundario peligro oculto" type="button" data-accion="eliminar">Eliminar este borrador</button>
+        <button id="btnVolverPrealtas" class="secundario" type="button">Volver</button>
+      </div>
+    </section>
+
+    <!-- PADRON: acordeones en celular (P3), tres columnas en escritorio (P6); elegido por Carlos 2026-09-05.
+         Tocar un carrier filtra unidades y choferes a los suyos; tocarlo otra vez quita el filtro. -->
+    <section id="p-padron" class="oculto">
+      <header class="cabecera"><span class="k">Padrón</span><h1>Carriers, unidades y choferes</h1></header>
+      <!-- I1 (7-sep): un buscador que filtra los tres grupos a la vez (carrier, placa, chofer, licencia). -->
+      <div class="busca"><input type="search" id="pdBusca" placeholder="Buscar carrier, placa o chofer" autocomplete="off" aria-label="Buscar en el padrón"><span class="cuenta" id="pdBuscaCuenta"></span></div>
+      <div class="padron">
+      <details class="grupo" id="pdGrupoCarriers">
+        <summary><span class="ic ca">CA</span><span class="t"><b>Carriers</b><small id="pdResCarriers"></small></span><button id="btnNuevoCarrier" class="alta" type="button">+ Alta</button><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="gcuerpo">
+          <div id="pdCarriers"></div>
+      <div class="tarjeta forma oculto" id="pdFormaCarrier">
+        <h2>Alta de carrier</h2>
+        <div class="campo"><label for="pcTitle">Razón social</label><input type="text" id="pcTitle"></div>
+        <div class="campo"><label for="pcAut">No. autorización ASEA de transporte</label><input type="text" id="pcAut" class="mono" placeholder="27-ASEA-T-RME-29-23"></div>
+        <div class="campo"><label for="pcVig">Vigencia de la autorización</label><input type="text" id="pcVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+        <div class="campo"><label for="pcFolio">Folio del oficio ASEA</label><input type="text" id="pcFolio" class="mono" placeholder="UGI-DEMO-0000-2025"></div>
+        <div class="campo"><span class="etiqueta-campo">Corrientes que ampara el oficio</span>
+          <label class="chk"><input type="checkbox" value="base-agua" name="pcCorr"> Recorte base agua</label>
+          <label class="chk"><input type="checkbox" value="base-aceite" name="pcCorr"> Recorte base aceite</label>
+          <label class="chk"><input type="checkbox" value="fluidos-base-agua" name="pcCorr"> Fluido agotado base agua</label>
+          <label class="chk"><input type="checkbox" value="fluidos-base-aceite" name="pcCorr"> Fluido agotado base aceite</label>
+        </div>
+        <div class="campo"><label for="pcSCT">No. registro SCT</label><input type="text" id="pcSCT"></div>
+        <div class="campo"><label for="pcCSF">Vigencia CSF</label><input type="text" id="pcCSF" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
+          <p class="pista">Si se deja vacía, cada góndola de este carrier sale como <b>Espera</b> (excepción comercial) hasta capturarla.</p></div>
+        <button id="btnGuardarCarrier" class="principal enviar" type="button">Guardar</button>
+        <button id="btnCancelarCarrier" class="secundario" type="button">Cancelar</button>
+      </div>
+        </div>
+      </details>
+      <details class="grupo" id="pdGrupoUnidades">
+        <summary><span class="ic un">UN</span><span class="t"><b>Unidades</b><small id="pdResUnidades"></small></span><button id="btnNuevaUnidad" class="alta" type="button">+ Alta</button><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="gcuerpo">
+          <p class="pista sin-margen">Transcritas del oficio. Una placa que no está aquí no está amparada: se abre el oficio, nunca se agrega de memoria.</p>
+          <div id="pdUnidades"></div>
+      <div class="tarjeta forma oculto" id="pdFormaUnidad">
+        <h2>Alta de unidad</h2>
+        <div class="campo"><label for="puuCarrier">Carrier</label><select id="puuCarrier"></select></div>
+        <div class="dos">
+          <div class="campo"><label for="puuPlaca">Placa tractor</label><input type="text" id="puuPlaca" class="mono" autocapitalize="characters"></div>
+          <div class="campo"><label for="puuPlana">Placa plana / caja</label><input type="text" id="puuPlana" class="mono" autocapitalize="characters"></div>
+        </div>
+        <div class="campo"><label for="puuTipo">Tipo</label><select id="puuTipo"><option value="gondola">Góndola</option><option value="tracto-plana">Tracto-plana</option><option value="caja">Caja</option><option value="otro">Otro</option></select></div>
+        <div class="campo"><label for="puuFolio">Folio del oficio que la ampara (obligatorio)</label><input type="text" id="puuFolio" class="mono"></div>
+        <div class="campo"><label for="puuCap">Capacidad (kg)</label><input type="number" id="puuCap" min="0"></div>
+        <div class="dos">
+          <div class="campo"><label for="puuSerie">No. de serie</label><input type="text" id="puuSerie"></div>
+          <div class="campo"><label for="puuMarca">Marca / modelo</label><input type="text" id="puuMarca"></div>
+        </div>
+        <div class="dos">
+          <div class="campo"><label for="puuTarjeta">Tarjeta de circulación</label><input type="text" id="puuTarjeta"></div>
+          <div class="campo"><label for="puuTarjetaVig">Vigencia</label><input type="text" id="puuTarjetaVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+        </div>
+        <div class="dos">
+          <div class="campo"><label for="puuPoliza">Póliza</label><input type="text" id="puuPoliza"></div>
+          <div class="campo"><label for="puuPolizaVig">Vigencia</label><input type="text" id="puuPolizaVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+        </div>
+        <button id="btnGuardarUnidad" class="principal enviar" type="button">Guardar</button>
+        <button id="btnCancelarUnidad" class="secundario" type="button">Cancelar</button>
+      </div>
+        </div>
+      </details>
+      <details class="grupo" id="pdGrupoChoferes">
+        <summary><span class="ic ch">CH</span><span class="t"><b>Choferes</b><small id="pdResChoferes"></small></span><button id="btnNuevoChofer" class="alta" type="button">+ Alta</button><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary>
+        <div class="gcuerpo">
+          <div id="pdChoferes"></div>
+      <div class="tarjeta forma oculto" id="pdFormaChofer">
+        <h2>Alta de chofer</h2>
+        <div class="campo"><label for="pchCarrier">Carrier</label><select id="pchCarrier"></select></div>
+        <div class="campo"><label for="pchNombre">Nombre completo</label><input type="text" id="pchNombre" autocapitalize="words"></div>
+        <div class="dos">
+          <div class="campo"><label for="pchLic">No. de licencia</label><input type="text" id="pchLic"></div>
+          <div class="campo"><label for="pchLicVig">Vigencia</label><input type="text" id="pchLicVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+        </div>
+        <button id="btnGuardarChofer" class="principal enviar" type="button">Guardar</button>
+        <button id="btnCancelarChofer" class="secundario" type="button">Cancelar</button>
+      </div>
+        </div>
+      </details>
+      </div>
+    </section>
+
+    <p class="pie" id="pie"></p>
+  </main>
+</div>
+
+<!-- VEREDICTO de la compuerta: el semáforo. Cubre la pantalla en el celular; en computadora es
+     un panel centrado. La clase v-ok / v-warn / v-bad la pone app.js segun el resultado. -->
+<section id="veredicto" class="veredicto oculto" role="dialog" aria-modal="true" aria-labelledby="vkW">
+  <div class="veredicto-caja">
+    <div class="hero">
+      <span class="k" id="vkK">Compuerta documental</span>
+      <span class="w" id="vkW"></span>
+      <span class="m" id="vkM"></span>
+      <span class="fo" id="vkFolio"></span>
+    </div>
+    <div class="cuerpo">
+      <div class="ctx" id="vkCtx"></div>
+      <div class="lbl" id="vkLbl">Qué lo decidió</div>
+      <ul class="reglas" id="puHallazgos"></ul>
+      <div id="puExcepcion" class="oculto">
+        <label class="ta" for="puMotivo"><small>Motivo · lo lee gerencia</small><textarea id="puMotivo" maxlength="300" placeholder="Por qué debería entrar aunque falte este documento"></textarea></label>
+        <p class="quien-autoriza">Lo autoriza <b>gerencia</b> desde su propia sesión, en «Hoy».</p>
+      </div>
+      <div id="vkGuion" class="guion oculto"><small>Qué le dices al chofer</small><span></span></div>
+      <div class="acciones">
+        <button id="btnRegistrarPuerta" class="btn tono" type="button"></button>
+        <button id="btnVolverVeredicto" class="btn contorno" type="button">Corregir lo capturado</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Confirmación propia (sustituye al confirm() nativo, 2026-09-05): título, texto, motivo cuando
+     la acción lo exige, y dos botones. app.js la llena y la abre con showModal(). -->
+<!-- Ticket en ventana (v0.19.1, pedido de Carlos): desde Cerrados el ticket sale en un pop-up con ‹ › para
+     recorrer los folios de la lista filtrada (también con las flechas del teclado). -->
+<dialog id="dlgTicket" class="dlg dlg-ticket" aria-label="Ticket de báscula">
+  <div class="tk-nav">
+    <button id="tkAnt" class="secundario" type="button" aria-label="Ticket anterior">‹</button>
+    <span id="tkPos" class="tk-pos"></span>
+    <button id="tkSig" class="secundario" type="button" aria-label="Ticket siguiente">›</button>
+  </div>
+  <div id="ticketPop" class="ticket"></div>
+  <div class="dlg-botones">
+    <button id="tkCerrar" class="secundario" type="button">Cerrar</button>
+    <button id="tkImprimir" class="principal" type="button">Imprimir / guardar PDF</button>
+  </div>
+</dialog>
+<dialog id="dlg" class="dlg">
+  <form method="dialog">
+    <h3 id="dlgTitulo"></h3>
+    <p id="dlgTexto"></p>
+    <div id="dlgMotivoCampo" class="campo oculto">
+      <label for="dlgMotivo" id="dlgMotivoEtiqueta">Motivo</label>
+      <textarea id="dlgMotivo" maxlength="300"></textarea>
+      <p id="dlgError" class="dlg-error oculto" role="alert">Escribe el motivo: sin él no procede.</p>
+    </div>
+    <div class="dlg-botones">
+      <button id="dlgCancelar" class="secundario" type="button" value="cancelar">Cancelar</button>
+      <button id="dlgOk" class="principal" type="button" value="ok"></button>
+    </div>
+  </form>
+</dialog>
+
+<script src="./vendor/msal-browser.min.js"></script>
+<script src="./app.js" type="module"></script>
+</body>
+</html>

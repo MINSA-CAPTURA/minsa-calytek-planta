@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pruebas de extremo a extremo — CALYTEK Planta</title>
+<!-- Corre la app REAL (index.html + app.js) contra un Graph FALSO en memoria y un MSAL falso, y
+     recorre los escenarios de docs/plan.md § Verificación mas los de la auditoria del 2026-09-05.
+     Sin CSP a proposito (es herramienta de desarrollo, no se publica). Se corre asi:
+
+       node servidor-local.js ../herramientas-dev/pruebas.html
+       msedge --headless=new --virtual-time-budget=30000 --dump-dom http://localhost:8080/?rol=gerencia
+
+     El resultado queda en <pre id="resultados"> y se manda a POST /guardar (_salida-dev.json).
+     El Graph falso VALIDA los valores de columnas choice contra esquema.json, como SharePoint:
+     escribir una opcion que no existe da 400. Eso es lo que hace visible una columna sin actualizar. -->
+<style>
+  body { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  #resultados { white-space: pre-wrap; background: #111; color: #ddd; padding: 1rem; }
+  #resultados .ok { color: #7fd48a; } #resultados .falla { color: #ff7b6b; font-weight: 700; } #resultados .nota { color: #ffd166; }
+</style>
+</head>
+<body>
+<pre id="resultados">arrancando…</pre>
+<div id="app-real"></div>
+
+<script>
+// ------------------------------------------------------------------ MSAL falso
+(function () {
+    const params = new URLSearchParams(location.search);
+    const cuenta = { username: params.get('quien') || 'gerencia@example.invalid', homeAccountId: 'x' };
+    class PublicClientApplication {
+        constructor(cfg) { this.cfg = cfg; }
+        async initialize() {}
+        async handleRedirectPromise() { return null; }
+        getAllAccounts() { return [cuenta]; }
+        async acquireTokenSilent() { return { accessToken: 'token-falso' }; }
+        async loginRedirect() { window.__PRUEBAS.log('nota', 'loginRedirect llamado'); }
+        async logoutRedirect() { window.__PRUEBAS.log('nota', 'logoutRedirect llamado'); }
+    }
+    class InteractionRequiredAuthError extends Error { constructor(m) { super(m); this.errorCode = 'interaction_required'; } }
+    window.msal = { PublicClientApplication, InteractionRequiredAuthError };
+    window.__CUENTA = cuenta;
+    // Sin service worker en las pruebas: un controllerchange recargaria la pagina a media corrida.
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: {
+        controller: null, addEventListener() {}, register() { return Promise.resolve({ update() {} }); }
+    } });
+    // confirm() nativo (si la version bajo prueba aun lo usa): siempre si.
+    window.confirm = () => true;
+})();
+
+// ------------------------------------------------------------------ Graph falso
+(function () {
+    const fetchReal = window.fetch.bind(window);
+    const G = 'https://graph.microsoft.com/v1.0';
+    const DB = { listas: {}, carpetas: [], archivos: [], siguienteId: 1, esquema: null, fallas: [], llamadas: [], filtros: [] };
+    window.__DB = DB;
+
+    function lista(id) { for (const l of Object.values(DB.listas)) if (l.id === id) return l; return null; }
+    function json(status, cuerpo) {
+        return new Response(cuerpo === undefined ? null : JSON.stringify(cuerpo), { status, headers: { 'Content-Type': 'application/json' } });
+    }
+    function error(status, mensaje) { return json(status, { error: { code: 'falso', message: mensaje } }); }
+    function validarChoices(l, campos) {
+        const esq = DB.esquema.listas.find(x => x.nombre === l.nombre);
+        for (const c of esq.columnas) {
+            if (c.tipo === 'choice' && campos[c.nombre] !== undefined && campos[c.nombre] !== null && !c.opciones.includes(campos[c.nombre]))
+                return `El valor "${campos[c.nombre]}" no es una opción de la columna ${c.nombre} (choice sin allowTextEntry)`;
+        }
+        return null;
+    }
+    function item(it) { return { id: String(it.id), fields: { ...it.fields, id: String(it.id) } }; }
+
+    // Subconjunto de OData que la app usa de verdad: `fields/X op valor` unidos por or/and, sin
+    // parentesis. Se implementa aqui a proposito: antes el Graph falso IGNORABA $filter y devolvia
+    // la lista entera, asi que una prueba de carga acotada habria pasado sin acotar nada.
+    const OPS = {
+        eq: (a, b) => String(a ?? '') === String(b),
+        ne: (a, b) => String(a ?? '') !== String(b),
+        ge: (a, b) => String(a ?? '') >= String(b),
+        gt: (a, b) => String(a ?? '') > String(b),
+        le: (a, b) => String(a ?? '') <= String(b),
+        lt: (a, b) => String(a ?? '') < String(b)
+    };
+    function odata(filtro, campos) {
+        const orS = filtro.split(/\s+or\s+/i);
+        return orS.some(t => t.split(/\s+and\s+/i).every(c => {
+            const m = /^\s*fields\/([A-Za-z0-9_]+)\s+(eq|ne|ge|gt|le|lt)\s+(.+?)\s*$/.exec(c);
+            if (!m) throw new Error('clausula no soportada: ' + c);
+            const crudo = m[3].trim();
+            const valor = /^'.*'$/.test(crudo) ? crudo.slice(1, -1) : crudo;
+            return OPS[m[2]](campos[m[1]], valor);
+        }));
+    }
+
+    window.fetch = async function (url, opts = {}) {
+        const u = String(url);
+        if (!u.startsWith(G)) return fetchReal(url, opts);
+        const metodo = (opts.method || 'GET').toUpperCase();
+        const ruta = u.slice(G.length);
+        DB.llamadas.push(`${metodo} ${ruta}`);
+        // Falla inyectada: { metodo, incluye, status, veces }
+        const f = DB.fallas.find(x => x.metodo === metodo && ruta.includes(x.incluye) && x.veces > 0);
+        if (f) { f.veces--; return error(f.status, `falla inyectada (${f.incluye})`); }
+
+        let m;
+        if ((m = /^\/sites\/([^/]+):(\/[^?]+)$/.exec(ruta)) && metodo === 'GET') return json(200, { id: 'sitio-falso' });
+        if (/^\/sites\/sitio-falso\/lists\?/.test(ruta) && metodo === 'GET')
+            return json(200, { value: Object.values(DB.listas).map(l => ({ id: l.id, name: l.nombre, displayName: l.nombre })) });
+        if ((m = /^\/sites\/sitio-falso\/lists\/([^/]+)\/items\?/.exec(ruta)) && metodo === 'GET') {
+            const l = lista(m[1]); if (!l) return error(404, 'lista');
+            const f = new URLSearchParams(ruta.slice(ruta.indexOf('?'))).get('$filter');
+            let items = l.items;
+            if (f) {
+                DB.filtros.push(f);
+                try { items = items.filter(it => odata(f, it.fields)); }
+                catch (e) { return error(400, 'el Graph falso no entiende el $filter: ' + f); }
+            }
+            return json(200, { value: items.map(item) });
+        }
+        if ((m = /^\/sites\/sitio-falso\/lists\/([^/]+)\/items$/.exec(ruta)) && metodo === 'POST') {
+            const l = lista(m[1]); if (!l) return error(404, 'lista');
+            const campos = JSON.parse(opts.body).fields;
+            const mal = validarChoices(l, campos); if (mal) return error(400, mal);
+            const it = { id: DB.siguienteId++, fields: { ...campos } };
+            l.items.push(it);
+            return json(201, item(it));
+        }
+        if ((m = /^\/sites\/sitio-falso\/lists\/([^/]+)\/items\/(\d+)\/fields$/.exec(ruta)) && metodo === 'PATCH') {
+            const l = lista(m[1]); const it = l && l.items.find(x => x.id === Number(m[2]));
+            if (!it) return error(404, 'renglón');
+            const campos = JSON.parse(opts.body);
+            const mal = validarChoices(l, campos); if (mal) return error(400, mal);
+            Object.assign(it.fields, campos);
+            return json(200, it.fields);
+        }
+        if ((m = /^\/sites\/sitio-falso\/lists\/([^/]+)\/items\/(\d+)$/.exec(ruta)) && metodo === 'DELETE') {
+            const l = lista(m[1]); const i = l ? l.items.findIndex(x => x.id === Number(m[2])) : -1;
+            if (i < 0) return error(404, 'renglón');
+            l.items.splice(i, 1);
+            return new Response(null, { status: 204 });
+        }
+        if ((m = /^\/sites\/sitio-falso\/drive\/root:\/(.+):\/children$/.exec(ruta)) && metodo === 'POST') {
+            const cuerpo = JSON.parse(opts.body);
+            let nombre = cuerpo.name; let n = 1;
+            while (DB.carpetas.find(c => c.ruta === decodeURIComponent(m[1]) + '/' + nombre)) nombre = `${cuerpo.name} ${++n}`;
+            const c = { id: 'carpeta-' + DB.siguienteId++, ruta: decodeURIComponent(m[1]) + '/' + nombre, nombre };
+            DB.carpetas.push(c);
+            return json(201, { id: c.id, name: nombre });
+        }
+        if ((m = /^\/sites\/sitio-falso\/drive\/root:\/(.+):\/content$/.exec(ruta)) && metodo === 'PUT') {
+            const ruta2 = decodeURIComponent(m[1]);
+            const carpeta = ruta2.slice(0, ruta2.lastIndexOf('/'));
+            if (!DB.carpetas.find(c => c.ruta === carpeta)) return error(404, 'la carpeta no existe: ' + carpeta);
+            DB.archivos.push({ ruta: ruta2, bytes: opts.body ? (opts.body.byteLength || opts.body.length || 0) : 0 });
+            return json(201, { name: ruta2.slice(ruta2.lastIndexOf('/') + 1) });
+        }
+        if ((m = /^\/sites\/sitio-falso\/drive\/(?:items\/([^/]+)|root:\/(.+))$/.exec(ruta)) && metodo === 'DELETE') {
+            const c = m[1] ? DB.carpetas.find(x => x.id === m[1]) : DB.carpetas.find(x => x.ruta === decodeURIComponent(m[2]));
+            if (!c) return error(404, 'carpeta');
+            DB.carpetas = DB.carpetas.filter(x => x !== c);
+            DB.archivos = DB.archivos.filter(a => !a.ruta.startsWith(c.ruta + '/'));
+            return new Response(null, { status: 204 });
+        }
+        return error(500, `el Graph falso no conoce ${metodo} ${ruta}`);
+    };
+
+    window.__sembrar = function (esquema, rol) {
+        DB.esquema = esquema;
+        for (const l of esquema.listas) DB.listas[l.clave] = { id: 'lista-' + l.clave, nombre: l.nombre, items: [] };
+        const roles = DB.listas.roles.items;
+        roles.push({ id: DB.siguienteId++, fields: { Title: window.__CUENTA.username, Nombre: 'Prueba', Rol: rol, Activo: true } });
+        roles.push({ id: DB.siguienteId++, fields: { Title: 'validador@example.invalid', Nombre: 'Validadora', Rol: 'validador', Activo: true } });
+    };
+})();
+
+// ------------------------------------------------------------------ bitacora de resultados
+(function () {
+    const pre = document.getElementById('resultados');
+    const R = { lineas: [], fallas: 0, oks: 0 };
+    R.log = (clase, texto) => {
+        const s = document.createElement('span'); s.className = clase; s.textContent = `[${clase.toUpperCase()}] ${texto}\n`; pre.appendChild(s);
+        R.lineas.push(`[${clase}] ${texto}`);
+    };
+    R.ok = (nombre, cond, detalle) => { if (cond) { R.oks++; R.log('ok', nombre + (detalle ? ' — ' + detalle : '')); } else { R.fallas++; R.log('falla', nombre + (detalle ? ' — ' + detalle : '')); } };
+    R.cerrar = async () => {
+        const resumen = `${R.oks} ok · ${R.fallas} falla(s)`;
+        R.log(R.fallas ? 'falla' : 'ok', 'RESUMEN: ' + resumen);
+        document.title = 'PRUEBAS TERMINADAS: ' + resumen;
+        try { await fetch('/guardar', { method: 'POST', body: JSON.stringify({ resumen, lineas: R.lineas, llamadas: window.__DB.llamadas.length }, null, 1) }); } catch (_) {}
+    };
+    window.__PRUEBAS = R;
+})();
+</script>
+
+<script type="module">
+const R = window.__PRUEBAS;
+const DB = window.__DB;
+const params = new URLSearchParams(location.search);
+const ROL = params.get('rol') || 'gerencia';
+const $ = id => document.getElementById(id);
+const dormir = ms => new Promise(r => setTimeout(r, ms));
+async function esperar(fn, que, ms = 8000) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) { try { const v = fn(); if (v) return v; } catch (_) {} await dormir(25); }
+    throw new Error('tiempo agotado esperando: ' + que);
+}
+const visible = id => !$(id).classList.contains('oculto') && !$(id).hidden;
+const avisoCon = texto => [...document.querySelectorAll('#avisos .mensaje')].find(m => m.textContent.includes(texto));
+const clic = id => $(id).click();
+const poner = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event('input', { bubbles: true })); $(id).dispatchEvent(new Event('change', { bubbles: true })); };
+const elegirPorTexto = (id, texto) => { const o = [...$(id).options].find(x => x.textContent.includes(texto)); if (!o) throw new Error(`no hay opción "${texto}" en ${id}`); poner(id, o.value); };
+const filas = clave => DB.listas[clave].items;
+async function foto() {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 48;
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#333'; ctx.fillRect(0, 0, 64, 48); ctx.fillStyle = '#0f0'; ctx.fillText('44600', 5, 30);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', .8));
+    const dt = new DataTransfer(); dt.items.add(new File([blob], 'indicador.jpg', { type: 'image/jpeg' }));
+    $('baFotoEntrada').files = dt.files; $('baFotoEntrada').dispatchEvent(new Event('change', { bubbles: true }));
+    await esperar(() => visible('baFotoPrevia'), 'foto previa');
+}
+// Si la version bajo prueba trae el dialogo propio (<dialog id="dlg">), lo contesta; si no, confirm() ya dijo si.
+async function confirmar(motivo) {
+    const d = $('dlg'); if (!d) return;
+    await esperar(() => d.open, 'diálogo abierto', 2000).catch(() => {});
+    if (!d.open) return;
+    if (motivo !== undefined && $('dlgMotivo')) poner('dlgMotivo', motivo);
+    clic('dlgOk');
+}
+
+try {
+    // 1. Montar la app real dentro de esta pagina.
+    const html = await (await fetch('./index.html', { cache: 'reload' })).text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    for (const s of doc.querySelectorAll('script')) s.remove();
+    const cont = $('app-real');
+    for (const n of [...doc.body.childNodes]) cont.appendChild(document.adoptNode(n));
+    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = './estilo.css'; document.head.appendChild(link);
+    const esquema = await (await fetch('./esquema.json', { cache: 'reload' })).json();
+    window.__sembrar(esquema, ROL);
+    const captura = ['trazabilidad', 'gerencia'].includes(ROL);
+    if (!captura) {
+        // Un rol que no captura recibe el padron y la pre-alta ya sembrados (los guarda otro rol).
+        const cId = DB.siguienteId++, uId = DB.siguienteId++, chId = DB.siguienteId++;
+        filas('carriers').push({ id: cId, fields: { Title: 'TRANSPORTES DEMO SA DE CV', AutorizacionASEA: '27-ASEA-T-RME-29-23', VigenciaASEA: '2028-12-05T18:00:00.000Z', Corrientes: 'base-aceite; base-agua', FolioOficio: 'UGI-DEMO-0000-2025', CSFVigencia: '2027-01-01T18:00:00.000Z', Activo: true } });
+        filas('unidades').push({ id: uId, fields: { Title: '55XY9K', PlacaPlana: '66ZW3M', CarrierId: cId, FolioOficio: 'UGI-DEMO-0000-2025', CapacidadKg: 25000, PolizaVigencia: '2027-03-01T18:00:00.000Z', TarjetaVigencia: '2027-06-01T18:00:00.000Z', Activo: true } });
+        filas('choferes').push({ id: chId, fields: { Title: 'JUAN PEREZ DEMO', CarrierId: cId, LicenciaVigencia: '2027-01-15T18:00:00.000Z', Activo: true } });
+        filas('prealtas').push({ id: DB.siguienteId++, fields: { Title: 'Cliente Demo · Pozo-1 · oct-2026', Estado: 'borrador', Corriente: 'base-aceite', CarrierId: cId, UnidadesIds: String(uId), ChoferesIds: String(chId), Campana: 'L-26-001' } });
+        R.log('nota', `rol ${ROL} no captura: padrón y pre-alta en borrador sembrados directo en las listas`);
+    }
+    await import('./app.js');
+    R.log('nota', `app importada · rol de prueba: ${ROL} · versión: ${$('pie').textContent}`);
+
+    // 2. Sesion: entra sola (cuenta ya presente) y aterriza en la pantalla del rol.
+    await esperar(() => !visible('pantallaEntrar'), 'sesión iniciada');
+    R.ok('sesión iniciada y rol resuelto', $('quien').textContent.includes(ROL), $('quien').textContent);
+    const inicial = ['hoy', 'puerta', 'bascula', 'prealtas', 'padron'].find(p => visible('p-' + p));
+    R.ok('pantalla inicial por rol', ROL === 'trazabilidad' ? inicial === 'puerta' : ROL === 'validador' ? inicial === 'prealtas' : inicial === 'hoy', inicial);
+
+    // 3. Padron: carrier (RME 105) + unidad + chofer.
+    document.querySelector('#pestanas button[data-p="padron"]').click();
+    if (captura) {
+    clic('btnNuevoCarrier');
+    poner('pcTitle', 'TRANSPORTES DEMO SA DE CV'); poner('pcAut', '27-ASEA-T-RME-29-23'); poner('pcVig', '2028-12-05'); poner('pcFolio', 'UGI-DEMO-0000-2025'); poner('pcCSF', '2027-01-01');
+    document.querySelector('input[name="pcCorr"][value="base-aceite"]').checked = true;
+    document.querySelector('input[name="pcCorr"][value="base-agua"]').checked = true;
+    clic('btnGuardarCarrier');
+    await esperar(() => avisoCon('Carrier dado de alta'), 'carrier guardado');
+    R.ok('carrier guardado en PLANTA_Carriers', filas('carriers').length === 1 && filas('carriers')[0].fields.Corrientes.includes('base-aceite'));
+    R.ok('vigencia ASEA del carrier dada de alta en PLANTA_Vigencias', filas('vigencias').length === 1 && filas('vigencias')[0].fields.Fuente === 'legal');
+    const carrierId = filas('carriers')[0].id;
+
+    clic('btnNuevaUnidad');
+    poner('puuCarrier', String(carrierId)); poner('puuPlaca', '55-xy-9k'); poner('puuPlana', '66ZW3M'); poner('puuFolio', 'UGI-DEMO-0000-2025'); poner('puuCap', '25000'); poner('puuPolizaVig', '2027-03-01'); poner('puuTarjetaVig', '2027-06-01');
+    clic('btnGuardarUnidad');
+    await esperar(() => avisoCon('Unidad transcrita'), 'unidad guardada');
+    R.ok('placa normalizada al guardar', filas('unidades')[0].fields.Title === '55XY9K', filas('unidades')[0].fields.Title);
+    const unidadId = filas('unidades')[0].id;
+
+    clic('btnNuevoChofer');
+    poner('pchCarrier', String(carrierId)); poner('pchNombre', 'JUAN PEREZ DEMO'); poner('pchLicVig', '2027-01-15');
+    clic('btnGuardarChofer');
+    await esperar(() => avisoCon('Chofer dado de alta'), 'chofer guardado');
+    const choferId = filas('choferes')[0].id;
+    R.ok('chofer guardado', !!choferId);
+
+    // Alta sin folio de oficio: debe negarse.
+    clic('btnNuevaUnidad'); poner('puuCarrier', String(carrierId)); poner('puuPlaca', 'ZZ9999'); poner('puuFolio', '');
+    clic('btnGuardarUnidad'); await dormir(100);
+    R.ok('unidad sin folio de oficio se rechaza', !!avisoCon('folio del oficio son obligatorios') && filas('unidades').length === 1);
+    clic('btnCancelarUnidad');
+    } else {
+        // Los botones estan ocultos; un clic programatico tampoco debe escribir (defensa en la funcion).
+        poner('pcTitle', 'INTRUSO'); clic('btnGuardarCarrier'); await dormir(80);
+        R.ok('rol sin captura: guardar carrier se niega aunque se fuerce el botón', filas('carriers').length === 1 && !!avisoCon('no edita el padrón'));
+        R.ok('rol sin captura: sin botones de alta ni de corrección en el padrón', !visible('btnNuevoCarrier') && !document.querySelector('#pdUnidades button'));
+    }
+    const carrierId = filas('carriers')[0].id, unidadId = filas('unidades')[0].id, choferId = filas('choferes')[0].id;
+
+    // 4. Pre-alta -> borrador -> firmar.
+    document.querySelector('#pestanas button[data-p="prealtas"]').click();
+    if (captura) {
+        clic('btnNuevaPrealta');
+        poner('paTitulo', 'Cliente Demo · Pozo-1 · oct-2026'); poner('paGenerador', 'GENERADOR DEMO'); poner('paPozo', 'Pozo-1'); poner('paCorriente', 'base-aceite');
+        poner('paCarrier', String(carrierId)); await dormir(20);
+        poner('paFecha', '2026-10-15'); poner('paGondolas', '10');
+        clic('btnGuardarPrealta');
+        await esperar(() => avisoCon('Pre-alta guardada como borrador'), 'pre-alta guardada');
+        R.ok('pre-alta en borrador con campaña L-AA-NNN', /^L-\d\d-\d{3}$/.test(filas('prealtas')[0].fields.Campana), filas('prealtas')[0].fields.Campana);
+        R.ok('pre-alta liga unidades y choferes del carrier', filas('prealtas')[0].fields.UnidadesIds === String(unidadId) && filas('prealtas')[0].fields.ChoferesIds === String(choferId));
+    } else {
+        R.ok('rol sin captura: no hay botón Nueva pre-alta', !visible('btnNuevaPrealta'));
+    }
+    const prealtaId = filas('prealtas')[0].id;
+
+    if (['validador', 'gerencia'].includes(ROL)) {
+        document.querySelector('#paBorradores .renglon button').click();
+        await esperar(() => visible('paDetalle'), 'detalle de pre-alta');
+        R.ok('detalle: vigencias todo vigente y botón Firmar habilitado', $('paDetalleVigencias').textContent.includes('todo vigente') && !$('btnFirmar').disabled && visible('btnFirmar'));
+        clic('btnFirmar'); await confirmar();
+        await esperar(() => avisoCon('Pre-alta firmada'), 'firma');
+        R.ok('pre-alta firmada con quién y cuándo', filas('prealtas')[0].fields.Estado === 'firmada' && filas('prealtas')[0].fields.FirmadaPor === window.__CUENTA.username);
+    } else {
+        Object.assign(filas('prealtas')[0].fields, { Estado: 'firmada', FirmadaPor: 'validador@example.invalid', FirmadaEl: new Date().toISOString() });
+        R.log('nota', 'rol sin firma: pre-alta firmada directo en la lista');
+    }
+
+    if (['trazabilidad', 'gerencia'].includes(ROL)) {
+        // 5. Puerta: caso 3 del plan -> PASA.
+        // Recargar el estado desde el servidor si el rol no capturo (lo sembramos por fuera).
+        document.querySelector('#pestanas button[data-p="puerta"]').click();
+        if (!$('puPrealta').options.length || $('puPrealta').options.length < 2) { if ($('btnActualizar')) { clic('btnActualizar'); await dormir(300); document.querySelector('#pestanas button[data-p="puerta"]').click(); } }
+        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        poner('puManifiesto', 'MINSA/RME/105/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M');
+        elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;
+        clic('btnCompuerta');
+        await esperar(() => visible('veredicto'), 'veredicto');
+        R.ok('compuerta caso 3: PASA (semáforo verde)', $('veredicto').classList.contains('v-ok') && $('vkW').textContent === 'Pasa', $('vkW').textContent);
+        clic('btnRegistrarPuerta');
+        await esperar(() => avisoCon('Ya aparece en Báscula'), 'registro de puerta');
+        const emb1 = filas('embarques')[0];
+        R.ok('embarque registrado en etapa compuerta, sin folio, con hallazgos JSON', emb1.fields.Etapa === 'compuerta' && !emb1.fields.Title && JSON.parse(emb1.fields.CompuertaDetalle).length > 3);
+
+        // 6. Bascula: bruto (nace E-) con foto; colision de folio con "otro celular".
+        document.querySelector('#pestanas button[data-p="bascula"]').click();
+        R.ok('la góndola aparece en planta', $('baLista').textContent.includes('55XY9K') && $('baLista').textContent.includes('falta el BRUTO'));
+        document.querySelector('#baLista .renglon button').click();
+        await esperar(() => visible('baPesar'), 'pesaje abierto');
+        poner('baKg', '44600');
+        clic('btnGuardarPeso'); await dormir(50);
+        R.ok('sin foto del indicador no se guarda', !!avisoCon('Falta la foto del indicador'));
+        await foto();
+        // Otro celular tomo E-26-00001 hace un segundo (estado local rancio).
+        const aa = String(new Date().getFullYear()).slice(-2);
+        filas('embarques').push({ id: DB.siguienteId++, fields: { Title: `E-${aa}-00001`, Etapa: 'bruto', PlacaTractor: 'OTRO01', Compuerta: 'pasa', Arribo: new Date().toISOString(), BrutoKg: 30000 } });
+        clic('btnGuardarPeso');
+        await esperar(() => avisoCon('Bruto guardado'), 'bruto guardado');
+        const folios = filas('embarques').map(e => e.fields.Title).filter(Boolean);
+        R.ok('folio E- único tras la colisión (el nuestro se renumeró)', new Set(folios).size === folios.length && emb1.fields.Title === `E-${aa}-00002`, folios.join(', '));
+        R.ok('lote de evidencia del bruto en el buzón (carpeta + foto + _lote.json)', DB.carpetas.some(c => c.ruta.includes('_Embarque_bruto-')) && DB.archivos.some(a => a.ruta.endsWith('_lote.json')) && DB.archivos.some(a => a.ruta.endsWith('-01.jpg')));
+        const loteBruto = DB.carpetas.find(c => c.ruta.includes('_Embarque_bruto-'));
+        R.ok('la carpeta del lote lleva el folio definitivo del embarque', loteBruto && loteBruto.ruta.includes(emb1.fields.Title.toLowerCase()), loteBruto && loteBruto.ruta);
+        R.ok('ticket con folio y bruto', $('ticket').textContent.includes(emb1.fields.Title) && $('ticket').textContent.includes('44600'));
+        R.ok('«Capturó» muestra el Nombre de PLANTA_Roles, no el correo', $('ticket').textContent.includes('Prueba') && !$('ticket').textContent.includes(window.__CUENTA.username), $('ticket').textContent.slice(-160));
+
+        // 7. Tara: fallo del PATCH tras subir la foto -> no debe quedar lote huérfano.
+        document.querySelector('#pestanas button[data-p="bascula"]').click();
+        const btnTara = [...document.querySelectorAll('#baLista .renglon')].find(r => r.textContent.includes(emb1.fields.Title)).querySelector('button');
+        R.ok('la góndola espera la TARA', btnTara.textContent === 'Pesar tara');
+        btnTara.click(); await esperar(() => visible('baPesar'), 'pesaje tara');
+        poner('baKg', '23380'); await foto();
+        const carpetasAntes = DB.carpetas.length;
+        DB.fallas.push({ metodo: 'PATCH', incluye: `items/${emb1.id}/fields`, status: 500, veces: 1 });
+        clic('btnGuardarPeso');
+        await esperar(() => avisoCon('No se pudo guardar'), 'error mostrado');
+        R.ok('el error del servidor se muestra al usuario', true);
+        R.ok('sin lote huérfano cuando falla el guardado tras subir la foto', DB.carpetas.length === carpetasAntes, `carpetas antes ${carpetasAntes}, después ${DB.carpetas.length}`);
+        R.ok('el embarque sigue en bruto (no se cerró a medias)', emb1.fields.Etapa === 'bruto');
+        // Reintento: ahora si.
+        clic('btnGuardarPeso');
+        await esperar(() => avisoCon('cerrado: neto 21220'), 'tara guardada');
+        R.ok('neto = bruto − tara, etapa cerrado, InicioAlmacen = hora del bruto', emb1.fields.NetoKg === 21220 && emb1.fields.Etapa === 'cerrado' && emb1.fields.InicioAlmacen === emb1.fields.BrutoHora);
+        R.ok('ticket final con NETO', $('ticket').textContent.includes('21220'));
+
+        // 8. Neto fuera de banda pide motivo.
+        document.querySelector('#pestanas button[data-p="puerta"]').click();
+        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        poner('puManifiesto', 'MINSA/RME/106/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite');
+        clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto 2');
+        R.ok('sin art. 79 marcado sale como aviso, no bloquea', $('vkW').textContent === 'Pasa' && $('puHallazgos').textContent.includes('Art. 79'));
+        clic('btnRegistrarPuerta'); await esperar(() => filas('embarques').length === 3, 'segundo embarque');
+        const emb2 = filas('embarques')[2];
+        document.querySelector('#pestanas button[data-p="bascula"]').click();
+        [...document.querySelectorAll('#baLista .renglon')].find(r => r.textContent.includes('falta el BRUTO')).querySelector('button').click();
+        await esperar(() => visible('baPesar'), 'pesaje 2'); poner('baKg', '44600'); await foto(); clic('btnGuardarPeso');
+        await esperar(() => avisoCon(`Folio E-${aa}-00003`), 'bruto 2');
+        document.querySelector('#pestanas button[data-p="bascula"]').click();
+        [...document.querySelectorAll('#baLista .renglon')].find(r => r.textContent.includes(emb2.fields.Title)).querySelector('button').click();
+        await esperar(() => visible('baPesar'), 'tara 2');
+        poner('baKg', '40000'); await dormir(30);
+        R.ok('neto 4,600 kg (< 30 % de 25 t) dispara el aviso y pide motivo', visible('baAvisoNeto') && visible('baMotivoNetoCampo'));
+        await foto(); clic('btnGuardarPeso'); await dormir(50);
+        R.ok('sin motivo no cierra', !!avisoCon('se sale de la banda'));
+        poner('baMotivoNeto', 'Góndola venía a un cuarto, confirmado con el chofer'); clic('btnGuardarPeso');
+        await esperar(() => avisoCon(`${emb2.fields.Title} cerrado`), 'tara 2 guardada');
+        R.ok('motivo del neto queda en Notas', String(emb2.fields.Notas).includes('fuera de banda') && String(emb2.fields.Notas).includes('un cuarto'));
+
+        // 9. Caso 4 del plan: placa no transcrita -> rechazo legal R-, sin consumir E-.
+        document.querySelector('#pestanas button[data-p="puerta"]').click();
+        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        poner('puManifiesto', 'MINSA/RME/107/2025'); poner('puPlaca', 'XX1234'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite');
+        clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto rechazo');
+        R.ok('compuerta caso 4: NO ENTRA (rojo) por placa no transcrita', $('veredicto').classList.contains('v-bad') && $('puHallazgos').querySelector('li.culpable') && $('puHallazgos').querySelector('li.culpable').textContent.includes('Placa'));
+        R.ok('guion para el chofer visible', visible('vkGuion') && $('vkGuion').textContent.includes('placa'));
+        clic('btnRegistrarPuerta'); await esperar(() => avisoCon('Rechazo registrado'), 'rechazo');
+        const rech = filas('embarques').find(e => e.fields.Etapa === 'rechazado');
+        R.ok('folio R- asignado y E- no consumido', rech && rech.fields.Title === `R-${aa}-0001` && !filas('embarques').some(e => e.fields.Title === `E-${aa}-00004`), rech && rech.fields.Title);
+
+        // 10. Caso 5: poliza vencida -> excepcion comercial -> autorizar desde Hoy.
+        filas('unidades')[0].fields.PolizaVigencia = '2026-01-01T12:00:00Z';
+        if ($('btnActualizar')) { clic('btnActualizar'); await esperar(() => avisoCon('Datos actualizados') || true, 'recarga'); await dormir(200); }
+        else { R.log('nota', 'sin botón Actualizar: la póliza vencida se inyecta en el estado por la vista'); }
+        document.querySelector('#pestanas button[data-p="puerta"]').click();
+        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        poner('puManifiesto', 'MINSA/RME/108/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite');
+        clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto excepción');
+        const esExc = $('veredicto').classList.contains('v-warn');
+        R.ok('compuerta caso 5: ESPERA (ámbar) por póliza vencida', esExc, $('vkW').textContent + ' · ' + ($('puHallazgos').querySelector('li.culpable') || {}).textContent);
+        if (esExc) {
+            clic('btnRegistrarPuerta'); await dormir(50);
+            R.ok('la excepción exige motivo escrito', !!avisoCon('lleva motivo escrito'));
+            poner('puMotivo', 'Póliza renovada, el carrier manda el PDF hoy'); clic('btnRegistrarPuerta');
+            await esperar(() => avisoCon('Gerencia lo ve'), 'excepción registrada');
+            const exc = filas('embarques').find(e => e.fields.Compuerta === 'excepcion-comercial');
+            document.querySelector('#pestanas button[data-p="bascula"]').click();
+            R.ok('la excepción NO está en planta hasta que se autorice', !$('baLista').textContent.includes(exc.fields.Manifiesto));
+            document.querySelector('#pestanas button[data-p="hoy"]').click();
+            R.ok('Hoy muestra la franja de excepción con su motivo', visible('hoyFranja') && $('hoyFranja').textContent.includes('Póliza renovada'));
+            if (ROL === 'gerencia') {
+                $('hoyFranja').querySelector('button.si').click(); await confirmar();
+                await esperar(() => avisoCon('Excepción autorizada'), 'autorización');
+                R.ok('excepción autorizada queda en el embarque con quién y cuándo', exc.fields.ExcepcionAutorizo === window.__CUENTA.username && !!exc.fields.ExcepcionEl);
+                document.querySelector('#pestanas button[data-p="bascula"]').click();
+                R.ok('ya autorizada, la góndola aparece en planta', $('baLista').textContent.includes('55XY9K'));
+            }
+        }
+
+        // 11. Hoy: KPI coherentes con lo que hay.
+        document.querySelector('#pestanas button[data-p="hoy"]').click();
+        const kp = $('tbKpis').textContent;
+        R.ok('KPI góndolas cerradas hoy = 2', /Góndolascerradashoy2/.test(kp.replace(/\s+/g, '')), kp.slice(0, 80));
+        R.ok('KPI toneladas hoy = 25.8 t (21,220 + 4,600)', kp.includes('25.8'), kp.match(/[\d.]+t/g)?.join(' '));
+        R.ok('rechazos de la semana = 1', /Rechazosestasemana1/.test(kp.replace(/\s+/g, '')));
+        // La poliza vencida del paso 10 se restaura para lo que sigue.
+        filas('unidades')[0].fields.PolizaVigencia = '2027-03-01T18:00:00.000Z';
+        clic('btnActualizar'); await esperar(() => avisoCon('Datos actualizados'), 'recarga 11');
+        R.ok('fila del día lista los embarques de hoy con folio y neto', $('tbFila').textContent.includes(emb1.fields.Title) && $('tbFila').textContent.includes('21,220'));
+
+        // 12. ELIMINAR / ANULAR (lo que pidio Carlos el 2026-09-05).
+        // 12a. Embarque en compuerta (sin folio): se elimina.
+        document.querySelector('#pestanas button[data-p="puerta"]').click();
+        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        poner('puManifiesto', 'MINSA/RME/109/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;
+        clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto 109');
+        clic('btnRegistrarPuerta'); await esperar(() => filas('embarques').some(e => e.fields.Manifiesto === 'MINSA/RME/109/2025'), 'embarque 109');
+        const emb109 = filas('embarques').find(e => e.fields.Manifiesto === 'MINSA/RME/109/2025');
+        document.querySelector('#pestanas button[data-p="bascula"]').click();
+        const r109 = [...document.querySelectorAll('#baLista .renglon')].find(r => r.textContent.includes('MINSA/RME/109'));
+        const btnElim = r109 && r109.querySelector('button[data-accion="eliminar"]');
+        R.ok('embarque en compuerta (sin folio) ofrece Eliminar', !!btnElim);
+        if (btnElim) {
+            btnElim.click(); await confirmar('Captura duplicada: ya se había registrado la 108');
+            await esperar(() => !filas('embarques').some(e => e.id === emb109.id), 'eliminado');
+            R.ok('el renglón sin folio se borró de la lista', !filas('embarques').some(e => e.id === emb109.id));
+            R.ok('desapareció de En planta', !$('baLista').textContent.includes('109'));
+        }
+        // 12b. Embarque cerrado con folio E-: se ANULA con motivo, el folio no se reutiliza.
+        document.querySelector('#pestanas button[data-p="hoy"]').click();
+        const filaEmb2 = [...document.querySelectorAll('#tbFila tr')].find(tr => tr.textContent.includes(emb2.fields.Title));
+        const btnAnular = filaEmb2 && filaEmb2.querySelector('button[data-accion="anular"]');
+        R.ok('embarque cerrado con folio ofrece Anular (no eliminar)', !!btnAnular && !(filaEmb2 && filaEmb2.querySelector('button[data-accion="eliminar"]')));
+        if (btnAnular) {
+            btnAnular.click(); await confirmar('');
+            await dormir(80);
+            R.ok('anular sin motivo no procede (el diálogo sigue abierto)', emb2.fields.Etapa === 'cerrado' && $('dlg').open, `etapa ${emb2.fields.Etapa} · abierto ${$('dlg').open} · motivo "${$('dlgMotivo').value}"`);
+            if ($('dlg').open) clic('dlgCancelar');
+            await dormir(30);
+            const btnAnular2 = [...document.querySelectorAll('#tbFila tr')].find(tr => tr.textContent.includes(emb2.fields.Title)).querySelector('button[data-accion="anular"]');
+            btnAnular2.click(); await confirmar('Se tecleó la tara de otra góndola; se repesa con folio nuevo');
+            await esperar(() => emb2.fields.Etapa === 'anulado', 'anulado');
+            R.ok('etapa anulado + motivo y quién en Notas', emb2.fields.Etapa === 'anulado' && String(emb2.fields.Notas).includes('ANULADO') && String(emb2.fields.Notas).includes(window.__CUENTA.username));
+            R.ok('el folio anulado se conserva (no se borra el renglón)', filas('embarques').some(e => e.id === emb2.id && e.fields.Title === emb2.fields.Title));
+            const kp2 = $('tbKpis').textContent.replace(/\s+/g, '');
+            R.ok('KPI: el anulado ya no cuenta (cerradas hoy = 1, 21.2 t)', /Góndolascerradashoy1/.test(kp2) && kp2.includes('21.2'), kp2.slice(0, 60));
+            // El siguiente folio E- salta el anulado.
+            document.querySelector('#pestanas button[data-p="puerta"]').click();
+            elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+            poner('puManifiesto', 'MINSA/RME/110/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;
+            clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto 110'); clic('btnRegistrarPuerta');
+            await esperar(() => filas('embarques').some(e => e.fields.Manifiesto === 'MINSA/RME/110/2025'), 'embarque 110');
+            document.querySelector('#pestanas button[data-p="bascula"]').click();
+            [...document.querySelectorAll('#baLista .renglon')].find(r => r.textContent.includes('MINSA/RME/110')).querySelector('button').click();
+            await esperar(() => visible('baPesar'), 'pesaje 110'); poner('baKg', '41000'); await foto(); clic('btnGuardarPeso');
+            await esperar(() => avisoCon('Bruto guardado'), 'bruto 110');
+            const e110 = filas('embarques').find(e => e.fields.Manifiesto === 'MINSA/RME/110/2025');
+            R.ok('el folio del anulado NO se reutiliza', e110.fields.Title === `E-${aa}-00004`, e110.fields.Title);
+        }
+        // 12c. Pre-alta en borrador: se elimina; firmada: no.
+        document.querySelector('#pestanas button[data-p="prealtas"]').click();
+        clic('btnNuevaPrealta'); poner('paTitulo', 'Borrador equivocado'); poner('paCorriente', 'base-agua'); poner('paCarrier', String(carrierId)); await dormir(20); clic('btnGuardarPrealta');
+        await esperar(() => filas('prealtas').length === 2, 'segunda pre-alta');
+        const rBorr = [...document.querySelectorAll('#paBorradores .renglon')].find(r => r.textContent.includes('Borrador equivocado'));
+        rBorr.querySelector('button').click(); await esperar(() => visible('paDetalle'), 'detalle borrador');
+        const btnElimPa = $('btnEliminarPrealta');
+        R.ok('pre-alta en borrador ofrece Eliminar', !!btnElimPa && visible('btnEliminarPrealta'));
+        if (btnElimPa) {
+            btnElimPa.click(); await confirmar('Se capturó dos veces');
+            await esperar(() => filas('prealtas').length === 1, 'pre-alta eliminada');
+            R.ok('borrador eliminado de la lista', filas('prealtas').length === 1 && !$('paBorradores').textContent.includes('Borrador equivocado'));
+            [...document.querySelectorAll('#paFirmadas .renglon')][0].querySelector('button').click(); await esperar(() => visible('paDetalle'), 'detalle firmada');
+            R.ok('pre-alta firmada NO ofrece Eliminar (solo Cerrar)', !visible('btnEliminarPrealta') && visible('btnCerrarPrealta'));
+        }
+        // 12d. Padron: unidad referenciada -> baja (no borrado); chofer sin referencias -> eliminar.
+        document.querySelector('#pestanas button[data-p="padron"]').click();
+        clic('btnNuevoChofer'); poner('pchCarrier', String(carrierId)); poner('pchNombre', 'CHOFER DE PRUEBA'); clic('btnGuardarChofer');
+        await esperar(() => filas('choferes').length === 2, 'chofer 2');
+        const rCh = [...document.querySelectorAll('#pdChoferes .renglon')].find(r => r.textContent.includes('CHOFER DE PRUEBA'));
+        const rUn = document.querySelector('#pdUnidades .renglon');
+        // v0.15.1 revirtió la autorización de gerencia: trazabilidad y gerencia eliminan / dan de baja directo.
+        // (La prueba de v0.15.0 quedó aquí sin revertir hasta el 2026-09-08 y fallaba en trazabilidad.)
+        R.ok('chofer sin referencias ofrece Eliminar; unidad referenciada ofrece Dar de baja', !!(rCh && rCh.querySelector('button[data-accion="eliminar"]')) && !!(rUn && rUn.querySelector('button[data-accion="baja"]')) && !(rUn && rUn.querySelector('button[data-accion="eliminar"]')));
+        if (rCh && rCh.querySelector('button[data-accion="eliminar"]')) {
+            rCh.querySelector('button[data-accion="eliminar"]').click(); await confirmar();
+            await esperar(() => filas('choferes').length === 1, 'chofer eliminado');
+            R.ok('chofer eliminado', filas('choferes').length === 1);
+        }
+        if (rUn && rUn.querySelector('button[data-accion="baja"]')) {
+            rUn.querySelector('button[data-accion="baja"]').click(); await confirmar('Placa mal transcrita');
+            await esperar(() => filas('unidades')[0].fields.Activo === false, 'unidad de baja');
+            R.ok('unidad dada de baja (Activo=false), el renglón se conserva', filas('unidades')[0].fields.Activo === false && filas('unidades').length === 1);
+            document.querySelector('#pestanas button[data-p="puerta"]').click();
+            elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+            poner('puManifiesto', 'MINSA/RME/111/2025'); poner('puPlaca', '55XY9K'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite');
+            clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto baja');
+            R.ok('una unidad de baja ya no ampara: la puerta la rechaza', $('veredicto').classList.contains('v-bad'));
+            clic('btnVolverVeredicto');
+            document.querySelector('#pestanas button[data-p="padron"]').click();
+            const rUn2 = document.querySelector('#pdUnidades .renglon');
+            if (rUn2 && rUn2.querySelector('button[data-accion="reactivar"]')) { rUn2.querySelector('button[data-accion="reactivar"]').click(); await confirmar(); await esperar(() => filas('unidades')[0].fields.Activo === true, 'reactivada'); R.ok('unidad reactivada', filas('unidades')[0].fields.Activo === true); }
+        }
+        // 13. Regla que sorprende: un carrier SIN vigencia CSF capturada vuelve cada gondola una excepcion.
+        const csf = filas('carriers')[0].fields.CSFVigencia; delete filas('carriers')[0].fields.CSFVigencia;
+        clic('btnActualizar'); await esperar(() => avisoCon('Datos actualizados'), 'recarga 13');
+        document.querySelector('#pestanas button[data-p="puerta"]').click();
+        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        poner('puManifiesto', 'MINSA/RME/112/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;
+        clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto CSF');
+        R.ok('carrier sin fecha de CSF → ESPERA por «CSF del carrier» (regla vigente; ver hallazgos)', $('veredicto').classList.contains('v-warn') && $('puHallazgos').textContent.includes('CSF del carrier'));
+        clic('btnVolverVeredicto'); filas('carriers')[0].fields.CSFVigencia = csf;
+
+        // 15. CARGA ACOTADA (cubeta 3). Se siembran renglones VIEJOS directo en el Graph falso y se
+        // recarga: la ventana de 90 dias debe dejar fuera el cerrado y traer igual el que sigue abierto.
+        R.ok('la carga acota por fecha (no pide la lista entera)', DB.filtros.some(f => f.includes('fields/Arribo ge')), DB.filtros.slice(0, 2).join(' | '));
+        R.ok('y trae aparte los abiertos sin importar su edad', DB.filtros.some(f => f.includes("fields/Etapa eq 'compuerta'")));
+        const hace = d => new Date(Date.now() - d * 86400000).toISOString();
+        const viejoCerrado = { id: DB.siguienteId++, fields: { Title: `E-${aa}-00099`, Etapa: 'cerrado', Arribo: hace(120), PlacaTractor: 'VIEJA01', NetoKg: 1000, CarrierId: carrierId } };
+        const viejoAbierto = { id: DB.siguienteId++, fields: { Title: '', Etapa: 'compuerta', Compuerta: 'pasa', Arribo: hace(120), PlacaTractor: 'VIEJA02', Manifiesto: 'MINSA/RME/099/2025', CarrierId: carrierId } };
+        const mismoAnio = new Date(hace(120)).getFullYear() === new Date().getFullYear();
+        filas('embarques').push(viejoCerrado, viejoAbierto);
+        clic('btnActualizar'); await esperar(() => avisoCon('Datos actualizados'), 'recarga 15');
+        document.querySelector('#pestanas button[data-p="bascula"]').click();
+        R.ok('el cerrado de hace 120 días NO se carga (fuera de la ventana)', !$('tbFila').textContent.includes('VIEJA01') && !$('baLista').textContent.includes('VIEJA01'));
+        R.ok('el ABIERTO de hace 120 días SÍ se carga (la fosa sigue ocupada)', $('baLista').textContent.includes('MINSA/RME/099'));
+        // Cerrados (v0.19.0): el folio cerrado hoy se vuelve a ver desde Báscula y su ticket se reimprime.
+        R.ok('Cerrados lista el folio cerrado', $('baCerrados').textContent.includes(emb1.fields.Title), $('baCerrados').textContent.slice(0, 160));
+        R.ok('Cerrados NO trae el de hace 120 días (misma ventana)', !$('baCerrados').textContent.includes('VIEJA01'));
+        R.ok('Cerrados NO trae lo que sigue en planta', !$('baCerrados').textContent.includes('MINSA/RME/099'));
+        poner('baBusca', 'zzz-no-existe'); await esperar(() => $('baCerrados').textContent.includes('Nada coincide'), 'busca cerrados vacia');
+        poner('baBusca', emb1.fields.Title.slice(-3)); await esperar(() => $('baBuscaCuenta').textContent.includes('resultado'), 'busca cerrados por folio');
+        R.ok('el buscador filtra por folio', $('baCerrados').textContent.includes(emb1.fields.Title));
+        [...document.querySelectorAll('#baCerrados .renglon')].find(r => r.textContent.includes(emb1.fields.Title)).querySelector('button').click();
+        R.ok('Ticket desde Cerrados abre la ventana con el folio y su neto', $('dlgTicket').open && $('ticketPop').textContent.includes(emb1.fields.Title) && $('ticketPop').textContent.includes('21220'));
+        R.ok('Cerrados no trae subtítulo por hilera', ![...document.querySelectorAll('#baCerrados .renglon .s')].length);
+        clic('tkCerrar'); poner('baBusca', '');
+        const nCerr = document.querySelectorAll('#baCerrados .renglon').length;
+        document.querySelector('#baCerrados .renglon button').click();
+        const primero = $('tkPos').textContent;
+        clic('tkSig');
+        R.ok('› pasa al siguiente ticket de la lista', nCerr > 1 && $('tkPos').textContent.startsWith('2 de') && $('tkPos').textContent !== primero, `${nCerr} · ${primero} → ${$('tkPos').textContent}`);
+        clic('tkAnt');
+        R.ok('‹ regresa al primero y se deshabilita', $('tkPos').textContent === primero && $('tkAnt').disabled);
+        clic('tkCerrar');
+        document.querySelector('#pestanas button[data-p="hoy"]').click();
+        R.ok('«Hoy» dice hasta dónde alcanza lo cargado', $('tbFila').textContent.includes('últimos 90 días'), $('tbFila').textContent.slice(-120));
+        // v0.19.2: Ticket en Hoy abre la ventana sin cambiar de pestaña.
+        const btnTkHoy = [...document.querySelectorAll('#tbFila button')].find(b => b.textContent === 'Ticket');
+        if (btnTkHoy) { btnTkHoy.click();
+            R.ok('Ticket en Hoy abre la ventana y se queda en Hoy', $('dlgTicket').open && !$('p-hoy').classList.contains('oculto') && /\d+ de \d+/.test($('tkPos').textContent), $('tkPos').textContent);
+            clic('tkCerrar'); }
+
+        // 15b. El folio mira el ANIO entero, no la ventana: si mirara la ventana repetiria E-..-00099.
+        if (mismoAnio) {
+            document.querySelector('#pestanas button[data-p="bascula"]').click();
+            [...document.querySelectorAll('#baLista .renglon')].find(r => r.textContent.includes('MINSA/RME/099')).querySelector('button').click();
+            await esperar(() => visible('baPesar'), 'pesaje viejo'); poner('baKg', '40000'); await foto(); clic('btnGuardarPeso');
+            await esperar(() => avisoCon('Bruto guardado'), 'bruto viejo');
+            R.ok('el folio salta el E-00099 que quedó fuera de la ventana (mira el año)', viejoAbierto.fields.Title === `E-${aa}-00100`, viejoAbierto.fields.Title);
+        } else R.log('nota', 'el año tiene menos de 120 días: se omite la prueba de folio por año');
+
+        // 15c. Borrar del padron pregunta EN VIVO: un chofer citado solo por un embarque fuera de la
+        // ventana no se puede eliminar. Con la cuenta en memoria se veria en cero y se borraria.
+        document.querySelector('#pestanas button[data-p="padron"]').click();
+        clic('btnNuevoChofer'); poner('pchCarrier', String(carrierId)); poner('pchNombre', 'CHOFER VIEJO'); clic('btnGuardarChofer');
+        await esperar(() => filas('choferes').some(c => c.fields.Title === 'CHOFER VIEJO'), 'chofer viejo');
+        const idChoferViejo = filas('choferes').find(c => c.fields.Title === 'CHOFER VIEJO').id;
+        viejoCerrado.fields.ChoferId = idChoferViejo;
+        const rChV = [...document.querySelectorAll('#pdChoferes .renglon')].find(r => r.textContent.includes('CHOFER VIEJO'));
+        R.ok('el botón sigue ofreciendo Eliminar (la memoria no lo ve citado)', !!rChV.querySelector('button[data-accion="eliminar"]'));
+        rChV.querySelector('button[data-accion="eliminar"]').click(); await confirmar();
+        await esperar(() => avisoCon('se da de baja, no se elimina'), 'negativa por cita vieja');
+        R.ok('pero el borrado se NIEGA: la consulta en vivo lo encuentra citado fuera de la ventana',
+            filas('choferes').some(c => c.id === idChoferViejo));
+
+        // 14. Sesion caducada: acquireTokenSilent pide interaccion -> la app manda al login, no un error mudo.
+        const pcaFalso = window.msal;
+        let redirigio = false;
+        pcaFalso.PublicClientApplication.prototype.acquireTokenSilent = async () => { throw new pcaFalso.InteractionRequiredAuthError('interaction_required'); };
+        pcaFalso.PublicClientApplication.prototype.acquireTokenRedirect = async () => { redirigio = true; };
+        clic('btnActualizar'); await esperar(() => redirigio || avisoCon('No se pudo actualizar'), 'token caducado');
+        R.ok('token caducado → acquireTokenRedirect (vuelve al login)', redirigio);
+    } else {
+        R.log('nota', `rol ${ROL}: sin captura de puerta; se prueba solo lectura`);
+        document.querySelector('#pestanas button[data-p="puerta"]').click();
+        R.ok('rol de lectura: la compuerta está deshabilitada', $('btnCompuerta').disabled && !!avisoCon('Tu rol es de lectura'));
+        document.querySelector('#pestanas button[data-p="padron"]').click();
+        R.ok('rol de lectura: sin botones de alta en el padrón', !visible('btnNuevoCarrier') && !visible('btnNuevaUnidad'));
+    }
+} catch (e) {
+    R.ok('la corrida terminó sin excepción', false, (e && e.stack) || String(e));
+} finally {
+    await R.cerrar();
+    // ?vista=padron oculta la bitacora y deja esa pestana abierta: para una captura de pantalla.
+    if (params.get('vista')) { $('resultados').hidden = true; document.querySelector(`#pestanas button[data-p="${params.get('vista')}"]`).click(); }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+{
+  "_que_es": "Esquema de las listas de SharePoint de la app de control de planta CALYTEK. Es la UNICA fuente: la lee herramientas-dev/provisionar.html para crearlas y app/graph.js para leerlas/escribirlas. Los nombres de columna son los INTERNOS (sin espacios ni acentos); el titulo visible va en 'titulo'. Las relaciones van por ID de renglon (numero), no por columna de busqueda: mas simple de leer por Graph y no obliga a crear las listas en orden. Los campos citan los 24 de minsa-energy/ambiental/calytek/registro-prestador-servicios.md seccion 4.1 (c1..c24) y el padron (padron-transportistas-y-vigencias.md).",
+  "version": 3,
+  "listas": [
+    {
+      "nombre": "PLANTA_Carriers",
+      "titulo": "Carriers (transportistas)",
+      "clave": "carriers",
+      "regla": "padron seccion 2: la autorizacion ASEA son tres datos (vigencia, unidades amparadas, corrientes amparadas). Las unidades viven en PLANTA_Unidades y se transcriben del oficio, nunca a mano.",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Razon social", "tipo": "text", "obligatorio": true },
+        { "nombre": "AutorizacionASEA", "titulo": "No. autorizacion ASEA de transporte", "tipo": "text", "nota": "c3" },
+        { "nombre": "VigenciaASEA", "titulo": "Vigencia de la autorizacion ASEA", "tipo": "dateTime", "nota": "legal: vencida = rechazo duro" },
+        { "nombre": "Corrientes", "titulo": "Corrientes amparadas", "tipo": "text", "nota": "separadas por ; — base-agua, base-aceite, fluidos-base-agua, fluidos-base-aceite. Transcritas del resolutivo TERCERO del oficio" },
+        { "nombre": "FolioOficio", "titulo": "Folio del oficio ASEA", "tipo": "text", "nota": "llave de enlace al documento en 04_SGI/02_Ambiental/Permisos-y-Autorizaciones (padron seccion 7)" },
+        { "nombre": "RegistroSCT", "titulo": "No. registro SCT", "tipo": "text" },
+        { "nombre": "CSFVigencia", "titulo": "Vigencia CSF (comercial)", "tipo": "dateTime" },
+        { "nombre": "Activo", "titulo": "Activo", "tipo": "boolean" },
+        { "nombre": "Notas", "titulo": "Notas", "tipo": "note" }
+      ]
+    },
+    {
+      "nombre": "PLANTA_Unidades",
+      "titulo": "Unidades vehiculares de carriers",
+      "clave": "unidades",
+      "regla": "padron seccion 4: transcripcion del oficio. Una placa que no esta aqui NO esta amparada; se corrige abriendo el oficio, y el alta queda con su folio. Dos placas por unidad (tractor y plana): la regla corre dos veces.",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Placa del tractor", "tipo": "text", "obligatorio": true },
+        { "nombre": "PlacaPlana", "titulo": "Placa de la plana / caja", "tipo": "text" },
+        { "nombre": "CarrierId", "titulo": "ID del carrier", "tipo": "number", "obligatorio": true },
+        { "nombre": "TipoUnidad", "titulo": "Tipo de unidad", "tipo": "choice", "opciones": ["gondola", "tracto-plana", "caja", "otro"] },
+        { "nombre": "Marca", "titulo": "Marca / modelo", "tipo": "text" },
+        { "nombre": "NumeroSerie", "titulo": "No. de serie", "tipo": "text" },
+        { "nombre": "CapacidadKg", "titulo": "Capacidad (kg)", "tipo": "number", "nota": "base de la tolerancia de neto (decision 6)" },
+        { "nombre": "FolioOficio", "titulo": "Folio del oficio que la ampara", "tipo": "text", "nota": "legal: si esta vacio la unidad no esta amparada" },
+        { "nombre": "TarjetaCirc", "titulo": "Tarjeta de circulacion", "tipo": "text" },
+        { "nombre": "TarjetaVigencia", "titulo": "Vigencia tarjeta (comercial)", "tipo": "dateTime" },
+        { "nombre": "Poliza", "titulo": "Poliza de seguro", "tipo": "text" },
+        { "nombre": "PolizaVigencia", "titulo": "Vigencia poliza (comercial)", "tipo": "dateTime" },
+        { "nombre": "Activo", "titulo": "Activo", "tipo": "boolean" },
+        { "nombre": "Notas", "titulo": "Notas", "tipo": "note", "nota": "2026-09-07: motivo obligatorio al cambiar una vigencia (tarea 9)" }
+      ]
+    },
+    {
+      "nombre": "PLANTA_Choferes",
+      "titulo": "Choferes / operadores",
+      "clave": "choferes",
+      "regla": "padron seccion 1: el chofer no aparece en el oficio ASEA; su licencia es riesgo COMERCIAL (excepcion por embarque con motivo y autoridad gerencial).",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Nombre completo", "tipo": "text", "obligatorio": true },
+        { "nombre": "CarrierId", "titulo": "ID del carrier", "tipo": "number", "obligatorio": true },
+        { "nombre": "Licencia", "titulo": "No. de licencia", "tipo": "text" },
+        { "nombre": "LicenciaVigencia", "titulo": "Vigencia licencia (comercial)", "tipo": "dateTime" },
+        { "nombre": "Activo", "titulo": "Activo", "tipo": "boolean" },
+        { "nombre": "Notas", "titulo": "Notas", "tipo": "note", "nota": "2026-09-07: motivo obligatorio al cambiar una vigencia (tarea 9)" }
+      ]
+    },
+    {
+      "nombre": "PLANTA_PreAltas",
+      "titulo": "Pre-altas de embarque (programa del cliente)",
+      "clave": "prealtas",
+      "regla": "decision 3-4 (2026-09-04): una por PROGRAMA de envios, ligada a la campana (pozo + generador + corriente). La firma del rol validador (o su suplente) la vuelve 'firmada'; sin firma, la puerta rechaza (legal).",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Nombre del programa", "tipo": "text", "obligatorio": true, "nota": "p. ej. 'GSM-Bronco · Pozo X · sep-2026'" },
+        { "nombre": "Estado", "titulo": "Estado", "tipo": "choice", "opciones": ["borrador", "firmada", "cerrada"], "obligatorio": true, "indexada": true },
+        { "nombre": "Generador", "titulo": "Generador (razon social)", "tipo": "text", "nota": "c1" },
+        { "nombre": "GeneradorRegistro", "titulo": "No. registro ASEA del generador", "tipo": "text", "nota": "c2" },
+        { "nombre": "Pozo", "titulo": "Pozo / instalacion de origen", "tipo": "text" },
+        { "nombre": "Corriente", "titulo": "Corriente declarada", "tipo": "choice", "opciones": ["base-agua", "base-aceite", "fluidos-base-agua", "fluidos-base-aceite"], "nota": "Tabla 8 del Resolutivo 1536/2025" },
+        { "nombre": "Campana", "titulo": "Folio de campana (L-AA-NNN)", "tipo": "text", "nota": "ticket 03; al arranque una sola" },
+        { "nombre": "CarrierId", "titulo": "ID del carrier", "tipo": "number" },
+        { "nombre": "UnidadesIds", "titulo": "IDs de unidades autorizadas", "tipo": "text", "nota": "separados por ;" },
+        { "nombre": "ChoferesIds", "titulo": "IDs de choferes autorizados", "tipo": "text", "nota": "separados por ;" },
+        { "nombre": "FechaEstimada", "titulo": "Fecha estimada del primer envio", "tipo": "dateTime" },
+        { "nombre": "GondolasEsperadas", "titulo": "Gondolas esperadas", "tipo": "number" },
+        { "nombre": "ToneladasEsperadas", "titulo": "Toneladas esperadas", "tipo": "number" },
+        { "nombre": "CorreoFecha", "titulo": "Fecha del correo del cliente", "tipo": "dateTime" },
+        { "nombre": "CorreoRemitente", "titulo": "Remitente del correo", "tipo": "text" },
+        { "nombre": "FirmadaPor", "titulo": "Firmada por", "tipo": "text" },
+        { "nombre": "FirmadaEl", "titulo": "Firmada el", "tipo": "dateTime" },
+        { "nombre": "CerradaPor", "titulo": "Cerrada por", "tipo": "text", "nota": "2026-09-07 (tarea 10): quien cerro el programa; antes solo lo sabia SharePoint" },
+        { "nombre": "CerradaEl", "titulo": "Cerrada el", "tipo": "dateTime", "nota": "2026-09-07 (tarea 10)" },
+        { "nombre": "CapturadaPor", "titulo": "Capturada por", "tipo": "text" },
+        { "nombre": "Notas", "titulo": "Notas", "tipo": "note" }
+      ]
+    },
+    {
+      "nombre": "PLANTA_Embarques",
+      "titulo": "Embarques (registro de puerta)",
+      "clave": "embarques",
+      "regla": "ticket 04 seccion 3: un solo registro de puerta con dos finales. Folio E-AA-NNNNN nace en la PRIMERA pasada de bascula (bruto); R-AA-NNNN cierra el rechazo documental sin consumir E-. Peso solo en kg (art. 35 fr. II c). Un folio nunca se reutiliza.",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Folio", "tipo": "text", "obligatorio": true, "nota": "E-26-00001 | R-26-0001 | (vacio mientras esta en compuerta)" },
+        { "nombre": "Etapa", "titulo": "Etapa", "tipo": "choice", "opciones": ["compuerta", "rechazado", "bruto", "cerrado", "anulado"], "obligatorio": true, "indexada": true, "nota": "descargando retirada el 2026-09-07 (F6): nada la escribia; la opcion queda en SharePoint porque provisionar solo agrega. anulado (2026-09-05): captura equivocada con folio ya emitido; el folio no se reutiliza. Sin folio se borra el renglon, no se anula" },
+        { "nombre": "PreAltaId", "titulo": "ID de la pre-alta", "tipo": "number", "indexada": true },
+        { "nombre": "Manifiesto", "titulo": "No. de manifiesto", "tipo": "text", "nota": "c6" },
+        { "nombre": "Arribo", "titulo": "Fecha y hora de arribo", "tipo": "dateTime", "nota": "c7 (art. 21 fr. III)", "indexada": true },
+        { "nombre": "CarrierId", "titulo": "ID del carrier", "tipo": "number", "indexada": true },
+        { "nombre": "UnidadId", "titulo": "ID de la unidad", "tipo": "number", "indexada": true, "nota": "indexada 2026-09-06 (cubeta 3): el borrado del padron pregunta en vivo quien la cita" },
+        { "nombre": "PlacaTractor", "titulo": "Placa tractor (como se leyo)", "tipo": "text", "nota": "c9: se guarda lo LEIDO, aunque coincida con el padron" },
+        { "nombre": "PlacaPlana", "titulo": "Placa plana (como se leyo)", "tipo": "text" },
+        { "nombre": "ChoferId", "titulo": "ID del chofer", "tipo": "number", "indexada": true, "nota": "indexada 2026-09-06 (cubeta 3): igual que UnidadId" },
+        { "nombre": "ChoferNombre", "titulo": "Chofer (como se leyo)", "tipo": "text" },
+        { "nombre": "CorrienteDeclarada", "titulo": "Corriente declarada en el manifiesto", "tipo": "choice", "opciones": ["base-agua", "base-aceite", "fluidos-base-agua", "fluidos-base-aceite"] },
+        { "nombre": "Compuerta", "titulo": "Resultado de la compuerta", "tipo": "choice", "opciones": ["pasa", "rechazo-legal", "excepcion-comercial"] },
+        { "nombre": "CompuertaDetalle", "titulo": "Hallazgos de la compuerta", "tipo": "note", "nota": "JSON con cada regla evaluada y su resultado" },
+        { "nombre": "ExcepcionMotivo", "titulo": "Motivo de la excepcion comercial", "tipo": "note" },
+        { "nombre": "ExcepcionAutorizo", "titulo": "Excepcion autorizada por", "tipo": "text" },
+        { "nombre": "ExcepcionEl", "titulo": "Excepcion autorizada el", "tipo": "dateTime" },
+        { "nombre": "Verificacion79", "titulo": "Residuo identificado, etiquetado y envasado (art. 79)", "tipo": "boolean", "nota": "c10" },
+        { "nombre": "BrutoKg", "titulo": "Bruto (kg)", "tipo": "number", "nota": "c8" },
+        { "nombre": "BrutoHora", "titulo": "Hora del bruto", "tipo": "dateTime" },
+        { "nombre": "BrutoFoto", "titulo": "Foto del indicador (bruto)", "tipo": "text", "nota": "par (fecha, concepto) del lote en el buzon — ticket 06" },
+        { "nombre": "TaraKg", "titulo": "Tara (kg)", "tipo": "number" },
+        { "nombre": "TaraHora", "titulo": "Hora de la tara", "tipo": "dateTime" },
+        { "nombre": "TaraFoto", "titulo": "Foto del indicador (tara)", "tipo": "text" },
+        { "nombre": "NetoKg", "titulo": "Neto (kg)", "tipo": "number", "nota": "calculado = bruto - tara; nunca capturado" },
+        { "nombre": "InicioAlmacen", "titulo": "Fecha de inicio de almacenamiento", "tipo": "dateTime", "nota": "c11 (art. 30 DACG-RME: reloj de 6 meses)" },
+        { "nombre": "CapturadoPor", "titulo": "Capturado por", "tipo": "text" },
+        { "nombre": "AnuladoPor", "titulo": "Anulado por", "tipo": "text", "nota": "2026-09-05" },
+        { "nombre": "AnuladoEl", "titulo": "Anulado el", "tipo": "dateTime", "nota": "2026-09-05" },
+        { "nombre": "AnuladoMotivo", "titulo": "Motivo de la anulacion", "tipo": "note", "nota": "2026-09-05: obligatorio al anular" },
+        { "nombre": "Notas", "titulo": "Notas", "tipo": "note" }
+      ]
+    },
+    {
+      "nombre": "PLANTA_Vigencias",
+      "titulo": "Vigencias (propias y de terceros)",
+      "clave": "vigencias",
+      "regla": "padron seccion 6: un solo registro de vigencias. Dos ejes ortogonales: fuente legal|comercial (la consecuencia) y titular propio|tercero+rol (si hay puerta donde cotejarla). Lo propio no tiene puerta: solo aviso a un dueno con nombre (sesion 2).",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Documento", "tipo": "text", "obligatorio": true },
+        { "nombre": "Titular", "titulo": "Titular", "tipo": "choice", "opciones": ["propio", "tercero"], "obligatorio": true },
+        { "nombre": "Rol", "titulo": "Rol del tercero", "tipo": "choice", "opciones": ["carrier", "laboratorio", "sitio-disposicion", "generador", "n/a"] },
+        { "nombre": "Fuente", "titulo": "Fuente del vencimiento", "tipo": "choice", "opciones": ["legal", "comercial"], "obligatorio": true },
+        { "nombre": "Vence", "titulo": "Vence", "tipo": "dateTime", "obligatorio": true },
+        { "nombre": "Dueno", "titulo": "Dueno del aviso (correo)", "tipo": "text" },
+        { "nombre": "Folio", "titulo": "Folio del documento", "tipo": "text", "nota": "enlace por folio a la biblioteca" },
+        { "nombre": "AvisoDias", "titulo": "Avisar con (dias)", "tipo": "number" },
+        { "nombre": "Activo", "titulo": "Activo", "tipo": "boolean" }
+      ]
+    },
+    {
+      "nombre": "PLANTA_Roles",
+      "titulo": "Roles de la app",
+      "clave": "roles",
+      "regla": "decision 5: encargado de trazabilidad (captura pre-alta y puerta), validador (firma pre-alta), gerencia (autoriza excepcion comercial), lectura (solo ve). La app lo aplica en pantalla; la traza real la deja SharePoint en Creado por / Modificado por de cada renglon (ver README, 'Lo que la app NO protege').",
+      "columnas": [
+        { "nombre": "Title", "titulo": "Correo", "tipo": "text", "obligatorio": true },
+        { "nombre": "Nombre", "titulo": "Nombre", "tipo": "text" },
+        { "nombre": "Rol", "titulo": "Rol", "tipo": "choice", "opciones": ["trazabilidad", "validador", "gerencia", "lectura"], "obligatorio": true },
+        { "nombre": "Activo", "titulo": "Activo", "tipo": "boolean" }
+      ]
+    }
+  ]
+}

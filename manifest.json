@@ -1,0 +1,17 @@
+{
+  "name": "CALYTEK Planta",
+  "short_name": "Planta",
+  "description": "Control de recepción de la planta CALYTEK: pre-alta, compuerta documental y báscula",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f7",
+  "theme_color": "#f5f5f7",
+  "lang": "es-MX",
+  "icons": [
+    { "src": "./iconos/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./iconos/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./iconos/icono-512-recortable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
