@@ -403,8 +403,10 @@ button:not(:disabled):active { transform: translateY(1px); }
 .veredicto.v-warn { --tono: var(--warn); --tono-ink: var(--warn-ink); }
 .veredicto.v-bad { --tono: var(--bad); --tono-ink: var(--bad-ink); }
 .veredicto-caja { min-height: 100%; display: flex; flex-direction: column; max-width: 34rem; margin: 0 auto; background: var(--surf); }
+/* v0.19.20 (pedido de Carlos, 2026-09-08): el hero con el color del veredicto se queda pegado arriba
+   mientras el operador baja por las reglas — el semaforo es lo primero que ve y nunca se le va. */
 .veredicto .hero {
-    background: var(--tono); color: var(--tono-ink); position: relative;
+    background: var(--tono); color: var(--tono-ink); position: sticky; top: 0; z-index: 2;
     padding: calc(2.6rem + env(safe-area-inset-top)) 1.3rem 1.3rem; display: flex; flex-direction: column; gap: .3rem;
 }
 .veredicto .hero .k { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; opacity: .85; }
