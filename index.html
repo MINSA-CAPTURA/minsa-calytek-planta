@@ -68,6 +68,12 @@
     <section id="p-hoy" class="oculto">
       <header class="cabecera"><span class="k" id="hoyKicker">Hoy</span><h1 id="hoyTitulo">Hoy</h1></header>
       <div id="hoyFranja" class="franja oculto"></div>
+      <!-- Pendiente revisar (v0.19.15, Carlos): lo que espera a una persona va ARRIBA de los KPI y en ambar
+           mientras haya algo; sin nada, se queda discreta. -->
+      <div class="tarjeta pendiente" id="tbPendientesTarjeta">
+        <div class="h2-con-boton"><h2>Pendiente revisar</h2><span class="cuenta-alerta oculto" id="tbPendientesN"></span></div>
+        <div id="tbPendientes"></div>
+      </div>
       <div class="kpis" id="tbKpis"></div>
       <div class="cols">
         <div class="tarjeta">
@@ -76,7 +82,6 @@
           <div class="fila-tarjetas" id="tbFilaTarjetas"></div>
         </div>
         <div class="pila">
-          <div class="tarjeta"><h2>Te toca a alguien</h2><div id="tbPendientes"></div></div>
           <div class="tarjeta"><h2>Vigencias a 30 días</h2><div id="tbVigencias"></div></div>
           <div class="tarjeta"><h2>Rechazos y excepciones recientes</h2><div id="tbRechazos"></div></div>
         </div>

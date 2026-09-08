@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion, prealtaSinMovimiento } from './reglas.js';
 
-const VERSION = '0.19.14';
+const VERSION = '0.19.15';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -1739,10 +1739,14 @@ function pintarHoy() {
     // semana» y «0 hace cuatro meses» se leen igual y el segundo es solo que no se cargo.
     tw.appendChild(el('p', 'pista', `Se cargan los últimos ${CONFIG.ventanaDias} días (desde el ${fechaCorta(estado.ventanaDesde)}) más todo lo que sigue abierto. El historial completo vive en SharePoint.`));
 
-    // Te toca a alguien: pre-altas por firmar, con quien las espera.
+    // Pendiente revisar: pre-altas por firmar, excepciones y programas dormidos. Con algo, la tarjeta se pinta en ambar
+    // con el conteo en rojo (Carlos, 2026-09-08: es lo primero que hay que atender).
     const pf = $('tbPendientes'); pf.textContent = '';
     const dormidas = estado.prealtas.filter(p => p.Estado === 'firmada').map(p => ({ p, sm: sinMovimientoDe(p) })).filter(x => x.sm);
-    if (!borradores.length && !pendientes.length && !dormidas.length) pf.appendChild(el('p', 'vacio', 'Nadie tiene nada pendiente.'));
+    const nPend = borradores.length + pendientes.length + dormidas.length;
+    $('tbPendientesTarjeta').classList.toggle('alerta', nPend > 0);
+    $('tbPendientesN').classList.toggle('oculto', !nPend); $('tbPendientesN').textContent = String(nPend);
+    if (!nPend) pf.appendChild(el('p', 'vacio', 'Nada pendiente.'));
     for (const { p, sm } of dormidas) pf.appendChild(renglon(`Programa · ${p.Title}`, `${sm.motivo} · ¿se cierra? Sigue saliendo en la puerta`, 'Ver', () => { irA('prealtas'); verPrealta(p); }));
     for (const p of borradores) { const d = diasPara(p.FechaEstimada); pf.appendChild(renglon(`Pre-alta · ${p.Title}`, `firma del validador · 1er envío ${fechaCorta(p.FechaEstimada)}${d !== null ? ` (en ${d} días)` : ''} · capturó ${p.CapturadaPor || '?'}`, 'Ver', () => { irA('prealtas'); verPrealta(p); })); }
     for (const e of pendientes) pf.appendChild(renglon(`Excepción · ${e.PlacaTractor}`, `autorización de gerencia · ${horaCorta(e.Arribo)}`));

@@ -350,6 +350,11 @@ button:not(:disabled):active { transform: translateY(1px); }
 .franja .botones button { border: 0; border-radius: .45rem; padding: .45rem .8rem; font-weight: 700; font-size: .82rem; }
 .franja .botones .si { background: var(--warn); color: var(--warn-ink); }
 .franja .botones .no { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+.tarjeta.pendiente { transition: background .2s; }
+.tarjeta.pendiente.alerta { background: var(--warn-soft); box-shadow: inset 4px 0 0 var(--warn), var(--sombra); }
+.tarjeta.pendiente.alerta h2 { color: var(--warn); }
+.tarjeta.pendiente .cuenta-alerta { background: var(--bad); color: var(--bad-ink); border-radius: 999px; min-width: 1.6rem; height: 1.6rem; padding: 0 .5rem; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: .85rem; flex: none; }
+.tarjeta.pendiente .renglon .t { font-size: 1rem; }
 .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-bottom: .9rem; }
 .kpi { background: var(--surf); border: 0; box-shadow: var(--sombra); border-radius: var(--radio); padding: .7rem .85rem; display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
 .kpi .l { font-size: .72rem; color: var(--mute); }
