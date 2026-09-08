@@ -352,6 +352,9 @@ try {
         document.querySelector('#pestanas button[data-p="puerta"]').click();
         if (!$('puPrealta').options.length || $('puPrealta').options.length < 2) { if ($('btnActualizar')) { clic('btnActualizar'); await dormir(300); document.querySelector('#pestanas button[data-p="puerta"]').click(); } }
         R.ok('firmada la pre-alta, la puerta ya no avisa pendientes de firma', !visible('puPendientes'));
+        document.querySelector('#pestanas button[data-p="prealtas"]').click();
+        R.ok('una firmada reciente con fecha futura no se señala como dormida', !$('paFirmadas').textContent.includes('¿se cierra?'));
+        document.querySelector('#pestanas button[data-p="puerta"]').click();
         elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
         poner('puManifiesto', 'MINSA/RME/000/2026'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M');
         elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;

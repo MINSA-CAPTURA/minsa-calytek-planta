@@ -54,6 +54,9 @@ export const CONFIG = {
 
     // Dias de anticipacion con que la puerta avisa (no bloquea) de un vencimiento cercano.
     avisoVigenciaDias: 30,
+    // Una pre-alta FIRMADA sin gondolas en estos dias (contados desde su ultimo movimiento: firma, fecha estimada o
+    // ultimo arribo) se senala en Hoy y en Pre-altas como «¿se cierra?». Solo informa: cerrar sigue siendo a mano.
+    sinMovimientoDias: 15,
     // Cada cuanto se releen las listas mientras la app esta a la vista (ms). 0 = solo con Actualizar y al volver del segundo plano.
     refrescoMs: 120000,
 

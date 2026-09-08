@@ -1,6 +1,6 @@
 // node test/reglas.test.js — las reglas de la puerta contra los casos de la verificacion del plan.
 import assert from 'node:assert/strict';
-import { compuerta, siguienteFolio, avisoNeto, placaNormal, slug, rolDe, evaluarVigencia, lista, accionCorreccion, PUEDE } from '../reglas.js';
+import { compuerta, siguienteFolio, avisoNeto, placaNormal, slug, rolDe, evaluarVigencia, lista, accionCorreccion, PUEDE, prealtaSinMovimiento } from '../reglas.js';
 
 const hoy = new Date('2026-10-15T12:00:00Z');
 const en = dias => new Date(hoy.getTime() + dias * 86400000).toISOString();
@@ -108,5 +108,19 @@ assert.equal(accionCorreccion(null), null);
 // El folio de un anulado sigue contando: el siguiente no lo reutiliza.
 assert.equal(siguienteFolio('E', ['E-26-00001', 'E-26-00002'], hoy), 'E-26-00003');
 assert.ok(PUEDE.corregir('trazabilidad') && PUEDE.corregir('gerencia') && !PUEDE.corregir('validador') && !PUEDE.corregir('lectura'));
+
+// Pre-alta firmada sin movimiento (v0.19.13): senala, no cierra.
+{
+    const pa = { id: 7, Estado: 'firmada', GondolasEsperadas: 3, FechaEstimada: en(-40), FirmadaEl: en(-45) };
+    const emb = (dias, etapa = 'cerrado') => ({ PreAltaId: 7, Etapa: etapa, Arribo: en(dias) });
+    assert.equal(prealtaSinMovimiento({ ...pa, Estado: 'borrador' }, [], 15, hoy), null, 'un borrador no se juzga');
+    assert.equal(prealtaSinMovimiento({ ...pa, FechaEstimada: en(5), FirmadaEl: en(-1) }, [], 15, hoy), null, 'recien firmada y con fecha futura: nada');
+    assert.match(prealtaSinMovimiento(pa, [], 15, hoy).motivo, /sin un solo arribo en 40 días/, 'sin arribos: cuenta desde la fecha estimada (la mas reciente)');
+    assert.equal(prealtaSinMovimiento(pa, [emb(-3)], 15, hoy), null, 'arribo hace 3 dias: viva');
+    assert.match(prealtaSinMovimiento(pa, [emb(-20)], 15, hoy).motivo, /sin arribos desde hace 20 días/);
+    assert.equal(prealtaSinMovimiento(pa, [emb(-20), emb(-2, 'anulado')], 15, hoy).motivo.includes('20'), true, 'un anulado no cuenta como movimiento');
+    assert.match(prealtaSinMovimiento(pa, [emb(-1), emb(-1), emb(-1)], 15, hoy).motivo, /ya recibió sus 3/, 'completa aunque sea reciente');
+    assert.equal(prealtaSinMovimiento({ ...pa, FechaEstimada: null, FirmadaEl: null }, [], 15, hoy), null, 'sin fechas no se juzga');
+}
 
 console.log('reglas: ok');

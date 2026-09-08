@@ -170,6 +170,27 @@ export function avisoNeto(brutoKg, taraKg, capacidadKg, tol) {
     return null;
 }
 
+/**
+ * Una pre-alta FIRMADA que ya no se mueve (Carlos, 2026-09-08: «¿siguen saliendo en la puerta si no llegan
+ * los camiones?» — si, hasta cerrarla a mano; esto la senala). Devuelve null si no hay nada que decir, o
+ * { motivo, desde } con el texto y la fecha del ultimo movimiento. Dos causas, la primera que aplique:
+ *  - ya recibio todas las gondolas esperadas (esp > 0 y rec >= esp);
+ *  - sin arribos en `dias` contados desde su ultimo movimiento (ultimo arribo, o si no hubo, la fecha estimada
+ *    del primer envio o la firma, la mas reciente). Sin ninguna fecha no se puede juzgar: null.
+ */
+export function prealtaSinMovimiento(p, embarques, dias, hoy = new Date()) {
+    if (!p || p.Estado !== 'firmada') return null;
+    const suyos = (embarques || []).filter(e => Number(e.PreAltaId) === Number(p.id) && e.Etapa !== 'anulado' && e.Etapa !== 'rechazado');
+    const esp = Number(p.GondolasEsperadas) || 0;
+    if (esp && suyos.length >= esp) return { motivo: `ya recibió sus ${esp} góndola(s)`, desde: null };
+    const fechas = suyos.map(e => e.Arribo).concat(suyos.length ? [] : [p.FechaEstimada, p.FirmadaEl]).filter(Boolean).map(f => new Date(f)).filter(f => !Number.isNaN(f.getTime()));
+    if (!fechas.length) return null;
+    const ultimo = new Date(Math.max(...fechas.map(f => f.getTime())));
+    const d = Math.floor((hoy.getTime() - ultimo.getTime()) / 86400000);
+    if (d < dias) return null;
+    return { motivo: suyos.length ? `sin arribos desde hace ${d} días` : `firmada y sin un solo arribo en ${d} días`, desde: ultimo.toISOString() };
+}
+
 /** Fecha YYYY-MM-DD en hora de Mexico (contrato de nombres: nunca UTC). */
 export function fechaMexico(ahora = new Date()) {
     const partes = new Intl.DateTimeFormat('en-CA', {

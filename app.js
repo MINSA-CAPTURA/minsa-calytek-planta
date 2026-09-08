@@ -11,9 +11,9 @@
 import { CONFIG } from './config.js';
 import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
-import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion } from './reglas.js';
+import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion, prealtaSinMovimiento } from './reglas.js';
 
-const VERSION = '0.19.12';
+const VERSION = '0.19.13';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -998,6 +998,7 @@ function gondolasDe(p) {
     const rec = estado.embarques.filter(e => Number(e.PreAltaId) === p.id && e.Etapa !== 'anulado' && e.Etapa !== 'rechazado').length;
     return { rec, esp: Number(p.GondolasEsperadas) || 0 };
 }
+function sinMovimientoDe(p) { return prealtaSinMovimiento(p, estado.embarques, CONFIG.sinMovimientoDias); }
 function barraAvance({ rec, esp }) {
     const d = el('div', 'avance');
     if (esp) {
@@ -1024,6 +1025,8 @@ function pintarPrealtas() {
             r.classList.add('conavance');
             if (p.Campana) r.firstChild.firstChild.appendChild(el('span', 'folio', p.Campana));
             if (p.Estado !== grupo) r.firstChild.firstChild.appendChild(etiqueta(p.Estado || 'sin estado', p.Estado));
+            const sm = grupo === 'firmada' ? sinMovimientoDe(p) : null;
+            if (sm) { r.firstChild.firstChild.appendChild(etiqueta('¿se cierra?', 'aviso')); r.firstChild.appendChild(el('p', 'pista', `${sm.motivo}. Sigue saliendo en la puerta hasta que alguien cierre el programa.`)); }
             r.firstChild.appendChild(barraAvance(g));
             cont.appendChild(r);
         }
@@ -1193,6 +1196,8 @@ function verPrealta(p) {
     $('btnFirmar').disabled = hayLegal;
     if (hayLegal && p.Estado === 'borrador') avisar('No se puede firmar con un hallazgo legal abierto: corrige el padrón (con el oficio a la vista) o cambia el carrier.', 'ojo');
     $('btnCerrarPrealta').classList.toggle('oculto', !(p.Estado === 'firmada' && PUEDE.capturarPrealta(estado.rol)));
+    const sm = sinMovimientoDe(p);
+    if (sm) avisar(`Este programa ${sm.motivo}. Sigue saliendo en la puerta hasta que se cierre; si ya no vienen más góndolas, ciérralo.`, 'ojo');
     // Un borrador equivocado se elimina; una firmada ya la vio la puerta y solo se CIERRA (2026-09-05).
     $('btnEliminarPrealta').classList.toggle('oculto', !(p.Estado === 'borrador' && PUEDE.corregir(estado.rol)));
     $('paDetalle').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1737,7 +1742,9 @@ function pintarHoy() {
 
     // Te toca a alguien: pre-altas por firmar, con quien las espera.
     const pf = $('tbPendientes'); pf.textContent = '';
-    if (!borradores.length && !pendientes.length) pf.appendChild(el('p', 'vacio', 'Nadie tiene nada pendiente.'));
+    const dormidas = estado.prealtas.filter(p => p.Estado === 'firmada').map(p => ({ p, sm: sinMovimientoDe(p) })).filter(x => x.sm);
+    if (!borradores.length && !pendientes.length && !dormidas.length) pf.appendChild(el('p', 'vacio', 'Nadie tiene nada pendiente.'));
+    for (const { p, sm } of dormidas) pf.appendChild(renglon(`Programa · ${p.Title}`, `${sm.motivo} · ¿se cierra? Sigue saliendo en la puerta`, 'Ver', () => { irA('prealtas'); verPrealta(p); }));
     for (const p of borradores) { const d = diasPara(p.FechaEstimada); pf.appendChild(renglon(`Pre-alta · ${p.Title}`, `firma del validador · 1er envío ${fechaCorta(p.FechaEstimada)}${d !== null ? ` (en ${d} días)` : ''} · capturó ${p.CapturadaPor || '?'}`, 'Ver', () => { irA('prealtas'); verPrealta(p); })); }
     for (const e of pendientes) pf.appendChild(renglon(`Excepción · ${e.PlacaTractor}`, `autorización de gerencia · ${horaCorta(e.Arribo)}`));
 
