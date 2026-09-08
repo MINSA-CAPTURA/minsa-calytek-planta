@@ -241,7 +241,7 @@ try {
     if (!captura) {
         // Un rol que no captura recibe el padron y la pre-alta ya sembrados (los guarda otro rol).
         const cId = DB.siguienteId++, uId = DB.siguienteId++, chId = DB.siguienteId++;
-        filas('carriers').push({ id: cId, fields: { Title: 'TRANSPORTES DEMO SA DE CV', AutorizacionASEA: '27-ASEA-T-RME-29-23', VigenciaASEA: '2028-12-05T18:00:00.000Z', Corrientes: 'base-aceite; base-agua', FolioOficio: 'UGI-DEMO-0000-2025', CSFVigencia: '2027-01-01T18:00:00.000Z', Activo: true } });
+        filas('carriers').push({ id: cId, fields: { Title: 'TRANSPORTES DEMO SA DE CV', AutorizacionASEA: '00-ASEA-T-RME-00-00', VigenciaASEA: '2028-12-05T18:00:00.000Z', Corrientes: 'base-aceite; base-agua', FolioOficio: 'UGI-DEMO-0000-2025', CSFVigencia: '2027-01-01T18:00:00.000Z', Activo: true } });
         filas('unidades').push({ id: uId, fields: { Title: '55XY9K', PlacaPlana: '66ZW3M', CarrierId: cId, FolioOficio: 'UGI-DEMO-0000-2025', CapacidadKg: 25000, PolizaVigencia: '2027-03-01T18:00:00.000Z', TarjetaVigencia: '2027-06-01T18:00:00.000Z', Activo: true } });
         filas('choferes').push({ id: chId, fields: { Title: 'JUAN PEREZ DEMO', CarrierId: cId, LicenciaVigencia: '2027-01-15T18:00:00.000Z', Activo: true } });
         filas('prealtas').push({ id: DB.siguienteId++, fields: { Title: 'Cliente Demo · Pozo-1 · oct-2026', Estado: 'borrador', Corriente: 'base-aceite', CarrierId: cId, UnidadesIds: String(uId), ChoferesIds: String(chId), Campana: 'L-26-001' } });
@@ -260,7 +260,7 @@ try {
     document.querySelector('#pestanas button[data-p="padron"]').click();
     if (captura) {
     clic('btnNuevoCarrier');
-    poner('pcTitle', 'TRANSPORTES DEMO SA DE CV'); poner('pcAut', '27-ASEA-T-RME-29-23'); poner('pcVig', '2028-12-05'); poner('pcFolio', 'UGI-DEMO-0000-2025'); poner('pcCSF', '2027-01-01');
+    poner('pcTitle', 'TRANSPORTES DEMO SA DE CV'); poner('pcAut', '00-ASEA-T-RME-00-00'); poner('pcVig', '2028-12-05'); poner('pcFolio', 'UGI-DEMO-0000-2025'); poner('pcCSF', '2027-01-01');
     document.querySelector('input[name="pcCorr"][value="base-aceite"]').checked = true;
     document.querySelector('input[name="pcCorr"][value="base-agua"]').checked = true;
     clic('btnGuardarCarrier');
@@ -330,7 +330,7 @@ try {
         document.querySelector('#pestanas button[data-p="puerta"]').click();
         if (!$('puPrealta').options.length || $('puPrealta').options.length < 2) { if ($('btnActualizar')) { clic('btnActualizar'); await dormir(300); document.querySelector('#pestanas button[data-p="puerta"]').click(); } }
         elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
-        poner('puManifiesto', 'MINSA/RME/105/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M');
+        poner('puManifiesto', 'MINSA/RME/000/2026'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M');
         elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;
         clic('btnCompuerta');
         await esperar(() => visible('veredicto'), 'veredicto');

@@ -5,7 +5,7 @@ import { compuerta, siguienteFolio, avisoNeto, placaNormal, slug, rolDe, evaluar
 const hoy = new Date('2026-10-15T12:00:00Z');
 const en = dias => new Date(hoy.getTime() + dias * 86400000).toISOString();
 
-// Datos del RME 105 (manifiesto MINSA/RME/105/2025): placas 55XY9K / 66ZW3M, chofer Juan Perez Demo,
+// Datos de demostracion (manifiesto MINSA/RME/000/2026): placas 55XY9K / 66ZW3M, chofer Juan Perez Demo,
 // carrier de demostracion, autorizacion 00-ASEA-T-RME-00-00 vigente a 2028-12-05.
 const carrier = { id: 1, Title: 'TRANSPORTES DEMO SA DE CV', AutorizacionASEA: '00-ASEA-T-RME-00-00',
     VigenciaASEA: '2028-12-05T00:00:00Z', Corrientes: 'base-aceite; base-agua', CSFVigencia: en(200) };
@@ -15,7 +15,7 @@ const chofer = { id: 20, Title: 'JUAN PEREZ DEMO', CarrierId: 1, LicenciaVigenci
 const prealta = { id: 5, Estado: 'firmada', FirmadaPor: 'validador@example.invalid', CarrierId: 1,
     UnidadesIds: '10', ChoferesIds: '20', Corriente: 'base-aceite' };
 const base = { prealta, carrier, unidad, chofer, placaTractor: '77-AN-5C', placaPlana: '66ZW3M',
-    corriente: 'base-aceite', manifiesto: 'MINSA/RME/105/2025', avisoDias: 30, hoy };
+    corriente: 'base-aceite', manifiesto: 'MINSA/RME/000/2026', avisoDias: 30, hoy };
 
 // Caso 3 del plan: todo en orden -> pasa.
 {
