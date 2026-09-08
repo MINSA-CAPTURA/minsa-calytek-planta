@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion, prealtaSinMovimiento } from './reglas.js';
 
-const VERSION = '0.19.16';
+const VERSION = '0.19.17';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -1057,8 +1057,9 @@ function nuevaPrealta() {
     $('paFormaTitulo').textContent = 'Nueva pre-alta'; $('btnGuardarPrealta').textContent = 'Guardar como borrador';
     opciones($('paCarrier'), estado.carriers.filter(c => c.Activo !== false), c => c.id, c => c.Title);
     pintarUnidadesChoferesPrealta();
-    for (const id of ['paTitulo', 'paGenerador', 'paGeneradorRegistro', 'paPozo', 'paFecha', 'paGondolas', 'paCorreoFecha', 'paCorreoRemitente', 'paNotas']) $(id).value = '';
+    for (const id of ['paTitulo', 'paCliente', 'paPozoTitulo', 'paMes', 'paGenerador', 'paGeneradorRegistro', 'paPozo', 'paFecha', 'paGondolas', 'paCorreoFecha', 'paCorreoRemitente', 'paNotas']) $(id).value = '';
     $('paCorriente').value = '';
+    armarTituloPrealta();
     pintarEstadoPrealta();
     abrirForma('paForma');
 }
@@ -1073,7 +1074,7 @@ function editarPrealta() {
     $('paFormaTitulo').textContent = `Editar pre-alta: ${p.Title}`; $('btnGuardarPrealta').textContent = 'Guardar cambios';
     opciones($('paCarrier'), estado.carriers.filter(c => c.Activo !== false || Number(c.id) === Number(p.CarrierId)), c => c.id, c => c.Title);
     const f = v => v === null || v === undefined ? '' : String(v);
-    $('paTitulo').value = f(p.Title); $('paCorriente').value = f(p.Corriente); $('paGenerador').value = f(p.Generador);
+    partirTituloPrealta(f(p.Title)); $('paCorriente').value = f(p.Corriente); $('paGenerador').value = f(p.Generador);
     $('paGeneradorRegistro').value = f(p.GeneradorRegistro); $('paPozo').value = f(p.Pozo); $('paCarrier').value = f(p.CarrierId);
     $('paFecha').value = p.FechaEstimada ? fechaCorta(p.FechaEstimada) : ''; $('paGondolas').value = f(p.GondolasEsperadas);
     $('paCorreoFecha').value = p.CorreoFecha ? fechaCorta(p.CorreoFecha) : ''; $('paCorreoRemitente').value = f(p.CorreoRemitente); $('paNotas').value = f(p.Notas);
@@ -1081,9 +1082,28 @@ function editarPrealta() {
     // Se marcan las que la pre-alta ya tenia; si no tenia ninguna guardada, quedan todas (es lo que la puerta entiende).
     for (const [cont, ids] of [['paUnidades', lista(p.UnidadesIds)], ['paChoferes', lista(p.ChoferesIds)]])
         if (ids.length) for (const c of $(cont).querySelectorAll('input')) c.checked = ids.includes(c.value);
+    armarTituloPrealta();
     pintarEstadoPrealta();
     cerrarForma('paDetalle');
     abrirForma('paForma');
+}
+/**
+ * Nombre del programa = CLIENTE-POZO-MES, en mayusculas (Carlos, 2026-09-08: «GSM-IXACHI 15-2026»). Las tres partes se
+ * capturan por separado y paTitulo (oculto) se arma solo; los guiones dentro de una parte se cambian por espacio para
+ * que el nombre se pueda volver a partir al editar. El pozo del titulo rellena «Pozo / instalacion» si esta vacio.
+ */
+const PARTES_TITULO = ['paCliente', 'paPozoTitulo', 'paMes'];
+const parteTitulo = id => $(id).value.trim().toUpperCase().replace(/\s*-\s*/g, ' ').replace(/\s+/g, ' ');
+function armarTituloPrealta() {
+    const partes = PARTES_TITULO.map(parteTitulo);
+    const t = partes.every(Boolean) ? partes.join('-') : '';
+    $('paTitulo').value = t; $('paTituloVista').textContent = t || '—';
+    const pozo = $('paPozo'); if (partes[1] && (!pozo.value || pozo.value === pozo.dataset.auto)) { pozo.value = partes[1]; pozo.dataset.auto = partes[1]; }
+}
+function partirTituloPrealta(titulo) {
+    const p = String(titulo || '').split('-').map(x => x.trim());
+    const partes = p.length >= 3 ? [p[0], p.slice(1, -1).join(' '), p[p.length - 1]] : [titulo || '', '', ''];
+    PARTES_TITULO.forEach((id, i) => { $(id).value = partes[i]; });
 }
 function pintarUnidadesChoferesPrealta() {
     const cid = Number($('paCarrier').value);
@@ -1102,7 +1122,7 @@ function marcados(id) { return [...$(id).querySelectorAll('input:checked')].map(
 // I4 (7-sep): cada bloque de la pre-alta dice si esta completo o que le falta, igual que la puerta.
 // Solo el 1 y el 3 tienen obligatorios (los mismos que valida guardarPrealta); el 2 y el 4 son opcionales y lo dicen.
 const BLOQUES_PREALTA = [
-    ['paBloque1', 'paEst1', ['paTitulo', 'paCorriente'], [], 'falta el nombre o la corriente'],
+    ['paBloque1', 'paEst1', ['paCliente', 'paPozoTitulo', 'paMes', 'paCorriente'], [], 'faltan cliente, pozo, mes o corriente'],
     ['paBloque2', 'paEst2', [], ['paGenerador', 'paGeneradorRegistro', 'paPozo'], 'opcional'],
     ['paBloque3', 'paEst3', ['paCarrier'], [], 'falta el carrier'],
     ['paBloque4', 'paEst4', [], ['paFecha', 'paGondolas', 'paCorreoFecha', 'paCorreoRemitente'], 'opcional'],
@@ -1116,12 +1136,13 @@ function pintarEstadoPrealta() {
         $(est).textContent = !ok ? pendiente : opc.length ? (n ? `${n} de ${opc.length}` : pendiente) : 'completo';
     }
 }
+for (const id of PARTES_TITULO) $(id).addEventListener('input', armarTituloPrealta);
 $('paForma').addEventListener('input', pintarEstadoPrealta);
 $('paForma').addEventListener('change', pintarEstadoPrealta);
 
 async function guardarPrealta() {
     if (!PUEDE.capturarPrealta(estado.rol)) { avisar('Tu rol no captura pre-altas.', 'error'); return; }
-    if (!$('paTitulo').value.trim() || !$('paCorriente').value || !$('paCarrier').value) { avisar('Faltan nombre, corriente o carrier.', 'error'); return; }
+    if (!$('paTitulo').value.trim() || !$('paCorriente').value || !$('paCarrier').value) { avisar('Faltan cliente, pozo o mes del programa, la corriente o el carrier.', 'error'); return; }
     $('btnGuardarPrealta').disabled = true;
     const edit = estado.prealtaEdit && estado.prealtaEdit.Estado === 'borrador' ? estado.prealtaEdit : null;
     try {

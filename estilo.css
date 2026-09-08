@@ -181,6 +181,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); opacity: 1; fon
 textarea { min-height: 4.5rem; resize: vertical; }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 .dos { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+.tres { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: .6rem; }
+.campo + .tres, .tres + .campo, .tres + .dos, .dos + .tres { margin-top: .8rem; }
 .chk { display: flex; align-items: flex-start; gap: .5rem; font-size: .9rem; font-weight: 500; color: var(--ink); margin-top: .6rem; }
 .chk input { width: 1.25rem; height: 1.25rem; margin: .1rem 0 0; accent-color: var(--acc); border-radius: 6px; }
 .pista { font-size: .78rem; color: var(--mute); margin: .3rem 0 0; }

@@ -244,7 +244,7 @@ try {
         filas('carriers').push({ id: cId, fields: { Title: 'TRANSPORTES DEMO SA DE CV', AutorizacionASEA: '00-ASEA-T-RME-00-00', VigenciaASEA: '2028-12-05T18:00:00.000Z', Corrientes: 'base-aceite; base-agua', FolioOficio: 'UGI-DEMO-0000-2025', CSFVigencia: '2027-01-01T18:00:00.000Z', Activo: true } });
         filas('unidades').push({ id: uId, fields: { Title: '55XY9K', PlacaPlana: '66ZW3M', CarrierId: cId, FolioOficio: 'UGI-DEMO-0000-2025', CapacidadKg: 25000, PolizaVigencia: '2027-03-01T18:00:00.000Z', TarjetaVigencia: '2027-06-01T18:00:00.000Z', Activo: true } });
         filas('choferes').push({ id: chId, fields: { Title: 'JUAN PEREZ DEMO', CarrierId: cId, LicenciaVigencia: '2027-01-15T18:00:00.000Z', Activo: true } });
-        filas('prealtas').push({ id: DB.siguienteId++, fields: { Title: 'Cliente Demo · Pozo-1 · oct-2026', Estado: 'borrador', Corriente: 'base-aceite', CarrierId: cId, UnidadesIds: String(uId), ChoferesIds: String(chId), Campana: 'L-26-001' } });
+        filas('prealtas').push({ id: DB.siguienteId++, fields: { Title: 'CLIENTE DEMO-POZO 1-OCT 2026', Estado: 'borrador', Corriente: 'base-aceite', CarrierId: cId, UnidadesIds: String(uId), ChoferesIds: String(chId), Campana: 'L-26-001' } });
         R.log('nota', `rol ${ROL} no captura: padrón y pre-alta en borrador sembrados directo en las listas`);
     }
     await import('./app.js');
@@ -306,7 +306,9 @@ try {
     document.querySelector('#pestanas button[data-p="prealtas"]').click();
     if (captura) {
         clic('btnNuevaPrealta');
-        poner('paTitulo', 'Cliente Demo · Pozo-1 · oct-2026'); poner('paGenerador', 'GENERADOR DEMO'); poner('paPozo', 'Pozo-1'); poner('paCorriente', 'base-aceite');
+        poner('paCliente', 'cliente demo'); poner('paPozoTitulo', 'pozo 1'); poner('paMes', 'oct-2026'); poner('paGenerador', 'GENERADOR DEMO'); poner('paCorriente', 'base-aceite');
+        R.ok('el nombre del programa se arma CLIENTE-POZO-MES en mayúsculas y rellena el pozo', $('paTitulo').value === 'CLIENTE DEMO-POZO 1-OCT 2026' && $('paPozo').value === 'POZO 1', $('paTitulo').value);
+        poner('paPozo', 'Pozo-1');
         poner('paCarrier', String(carrierId)); await dormir(20);
         poner('paFecha', '2026-10-15'); poner('paGondolas', '10');
         clic('btnGuardarPrealta');
@@ -330,7 +332,7 @@ try {
         document.querySelector('#paBorradores .renglon button').click();
         await esperar(() => visible('paDetalle'), 'detalle del borrador otra vez');
         clic('btnEditarPrealta'); await esperar(() => $('paForma').open, 'formulario de edición');
-        R.ok('el formulario abre con los datos del borrador', $('paTitulo').value === 'Cliente Demo · Pozo-1 · oct-2026' && $('paPozo').value === 'Pozo-1' && $('paCarrier').value === String(carrierId));
+        R.ok('el formulario abre con los datos del borrador', $('paCliente').value === 'CLIENTE DEMO' && $('paPozoTitulo').value === 'POZO 1' && $('paMes').value === 'OCT 2026' && $('paTitulo').value === 'CLIENTE DEMO-POZO 1-OCT 2026' && $('paPozo').value === 'Pozo-1' && $('paCarrier').value === String(carrierId));
         poner('paPozo', 'Pozo-2'); poner('paGondolas', '12'); clic('btnGuardarPrealta');
         await esperar(() => avisoCon('Borrador actualizado'), 'borrador actualizado');
         const pe = filas('prealtas')[0].fields;
@@ -366,7 +368,7 @@ try {
         document.querySelector('#pestanas button[data-p="prealtas"]').click();
         R.ok('una firmada reciente con fecha futura no se señala como dormida', !$('paFirmadas').textContent.includes('¿se cierra?'));
         document.querySelector('#pestanas button[data-p="puerta"]').click();
-        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        elegirPorTexto('puPrealta', 'CLIENTE DEMO'); await dormir(20);
         poner('puManifiesto', 'MINSA/RME/000/2026'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M');
         elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;
         clic('btnCompuerta');
@@ -420,7 +422,7 @@ try {
 
         // 8. Neto fuera de banda pide motivo.
         document.querySelector('#pestanas button[data-p="puerta"]').click();
-        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        elegirPorTexto('puPrealta', 'CLIENTE DEMO'); await dormir(20);
         poner('puManifiesto', 'MINSA/RME/106/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite');
         clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto 2');
         R.ok('sin art. 79 marcado sale como aviso, no bloquea', $('vkW').textContent === 'Pasa' && $('puHallazgos').textContent.includes('Art. 79'));
@@ -443,7 +445,7 @@ try {
 
         // 9. Caso 4 del plan: placa no transcrita -> rechazo legal R-, sin consumir E-.
         document.querySelector('#pestanas button[data-p="puerta"]').click();
-        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        elegirPorTexto('puPrealta', 'CLIENTE DEMO'); await dormir(20);
         poner('puManifiesto', 'MINSA/RME/107/2025'); poner('puPlaca', 'XX1234'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite');
         clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto rechazo');
         R.ok('compuerta caso 4: NO ENTRA (rojo) por placa no transcrita', $('veredicto').classList.contains('v-bad') && $('puHallazgos').querySelector('li.culpable') && $('puHallazgos').querySelector('li.culpable').textContent.includes('Placa'));
@@ -457,7 +459,7 @@ try {
         if ($('btnActualizar')) { clic('btnActualizar'); await esperar(() => avisoCon('Datos actualizados') || true, 'recarga'); await dormir(200); }
         else { R.log('nota', 'sin botón Actualizar: la póliza vencida se inyecta en el estado por la vista'); }
         document.querySelector('#pestanas button[data-p="puerta"]').click();
-        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        elegirPorTexto('puPrealta', 'CLIENTE DEMO'); await dormir(20);
         poner('puManifiesto', 'MINSA/RME/108/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite');
         clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto excepción');
         const esExc = $('veredicto').classList.contains('v-warn');
@@ -495,7 +497,7 @@ try {
         // 12. ELIMINAR / ANULAR (lo que pidio Carlos el 2026-09-05).
         // 12a. Embarque en compuerta (sin folio): se elimina.
         document.querySelector('#pestanas button[data-p="puerta"]').click();
-        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        elegirPorTexto('puPrealta', 'CLIENTE DEMO'); await dormir(20);
         poner('puManifiesto', 'MINSA/RME/109/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;
         clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto 109');
         clic('btnRegistrarPuerta'); await esperar(() => filas('embarques').some(e => e.fields.Manifiesto === 'MINSA/RME/109/2025'), 'embarque 109');
@@ -530,7 +532,7 @@ try {
             R.ok('KPI: el anulado ya no cuenta (cerradas hoy = 1, 21.2 t)', /Góndolascerradashoy1/.test(kp2) && kp2.includes('21.2'), kp2.slice(0, 60));
             // El siguiente folio E- salta el anulado.
             document.querySelector('#pestanas button[data-p="puerta"]').click();
-            elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+            elegirPorTexto('puPrealta', 'CLIENTE DEMO'); await dormir(20);
             poner('puManifiesto', 'MINSA/RME/110/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;
             clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto 110'); clic('btnRegistrarPuerta');
             await esperar(() => filas('embarques').some(e => e.fields.Manifiesto === 'MINSA/RME/110/2025'), 'embarque 110');
@@ -543,16 +545,16 @@ try {
         }
         // 12c. Pre-alta en borrador: se elimina; firmada: no.
         document.querySelector('#pestanas button[data-p="prealtas"]').click();
-        clic('btnNuevaPrealta'); poner('paTitulo', 'Borrador equivocado'); poner('paCorriente', 'base-agua'); poner('paCarrier', String(carrierId)); await dormir(20); clic('btnGuardarPrealta');
+        clic('btnNuevaPrealta'); poner('paCliente', 'Borrador'); poner('paPozoTitulo', 'equivocado'); poner('paMes', 'x'); poner('paCorriente', 'base-agua'); poner('paCarrier', String(carrierId)); await dormir(20); clic('btnGuardarPrealta');
         await esperar(() => filas('prealtas').length === 2, 'segunda pre-alta');
-        const rBorr = [...document.querySelectorAll('#paBorradores .renglon')].find(r => r.textContent.includes('Borrador equivocado'));
+        const rBorr = [...document.querySelectorAll('#paBorradores .renglon')].find(r => r.textContent.includes('BORRADOR-EQUIVOCADO-X'));
         rBorr.querySelector('button').click(); await esperar(() => visible('paDetalle'), 'detalle borrador');
         const btnElimPa = $('btnEliminarPrealta');
         R.ok('pre-alta en borrador ofrece Eliminar', !!btnElimPa && visible('btnEliminarPrealta'));
         if (btnElimPa) {
             btnElimPa.click(); await confirmar('Se capturó dos veces');
             await esperar(() => filas('prealtas').length === 1, 'pre-alta eliminada');
-            R.ok('borrador eliminado de la lista', filas('prealtas').length === 1 && !$('paBorradores').textContent.includes('Borrador equivocado'));
+            R.ok('borrador eliminado de la lista', filas('prealtas').length === 1 && !$('paBorradores').textContent.includes('BORRADOR-EQUIVOCADO-X'));
             [...document.querySelectorAll('#paFirmadas .renglon')][0].querySelector('button').click(); await esperar(() => visible('paDetalle'), 'detalle firmada');
             R.ok('pre-alta firmada NO ofrece Eliminar (solo Cerrar)', !visible('btnEliminarPrealta') && visible('btnCerrarPrealta'));
         }
@@ -575,7 +577,7 @@ try {
             await esperar(() => filas('unidades')[0].fields.Activo === false, 'unidad de baja');
             R.ok('unidad dada de baja (Activo=false), el renglón se conserva', filas('unidades')[0].fields.Activo === false && filas('unidades').length === 1);
             document.querySelector('#pestanas button[data-p="puerta"]').click();
-            elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+            elegirPorTexto('puPrealta', 'CLIENTE DEMO'); await dormir(20);
             poner('puManifiesto', 'MINSA/RME/111/2025'); poner('puPlaca', '55XY9K'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite');
             clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto baja');
             R.ok('una unidad de baja ya no ampara: la puerta la rechaza', $('veredicto').classList.contains('v-bad'));
@@ -588,7 +590,7 @@ try {
         const csf = filas('carriers')[0].fields.CSFVigencia; delete filas('carriers')[0].fields.CSFVigencia;
         clic('btnActualizar'); await esperar(() => avisoCon('Datos actualizados'), 'recarga 13');
         document.querySelector('#pestanas button[data-p="puerta"]').click();
-        elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
+        elegirPorTexto('puPrealta', 'CLIENTE DEMO'); await dormir(20);
         poner('puManifiesto', 'MINSA/RME/112/2025'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M'); elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;
         clic('btnCompuerta'); await esperar(() => visible('veredicto'), 'veredicto CSF');
         R.ok('carrier sin fecha de CSF → ESPERA por «CSF del carrier» (regla vigente; ver hallazgos)', $('veredicto').classList.contains('v-warn') && $('puHallazgos').textContent.includes('CSF del carrier'));

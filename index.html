@@ -306,7 +306,14 @@
         <!-- Cuatro bloques numerados, el mismo lenguaje que la puerta (I4 de la auditoría del 7-sep). Los ids no cambiaron. -->
         <div class="bloque" id="paBloque1">
           <div class="bt"><span class="bn">1</span><h2>Programa</h2><span class="est" id="paEst1"></span></div>
-          <div class="campo"><label for="paTitulo">Nombre del programa</label><input type="text" id="paTitulo" placeholder="Cliente · Pozo · mes"></div>
+          <!-- Nombre del programa por partes (v0.19.17, Carlos): CLIENTE-POZO-MES en mayúsculas; paTitulo se arma solo. -->
+          <div class="tres">
+            <div class="campo"><label for="paCliente">Cliente</label><input type="text" id="paCliente" autocapitalize="characters" placeholder="GSM"></div>
+            <div class="campo"><label for="paPozoTitulo">Pozo</label><input type="text" id="paPozoTitulo" autocapitalize="characters" placeholder="IXACHI 15"></div>
+            <div class="campo"><label for="paMes">Mes</label><input type="text" id="paMes" autocapitalize="characters" placeholder="SEP-2026"></div>
+          </div>
+          <p class="pista">Nombre del programa: <b class="mono" id="paTituloVista">—</b></p>
+          <input type="hidden" id="paTitulo">
           <div class="campo"><label for="paCorriente">Corriente</label>
             <select id="paCorriente">
               <option value="">— elige —</option>
