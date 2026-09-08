@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion } from './reglas.js';
 
-const VERSION = '0.19.7';
+const VERSION = '0.19.8';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -49,9 +49,14 @@ function avisar(texto, clase = '') {
     d.className = 'mensaje' + (clase ? ' ' + clase : '');
     d.textContent = texto;
     $('avisos').appendChild(d);
+    const dlg = document.querySelector('dialog.dlg-forma[open]');
+    if (dlg) { const z = dlg.querySelector('.dlg-avisos'); z.textContent = ''; z.appendChild(d.cloneNode(true)); dlg.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-function limpiarAvisos() { $('avisos').textContent = ''; }
+function limpiarAvisos() { $('avisos').textContent = ''; for (const z of document.querySelectorAll('.dlg-forma .dlg-avisos')) z.textContent = ''; }
+// Los formularios de alta viven en <dialog> (v0.19.8): abrir es showModal, cerrar es close. Idempotentes.
+function abrirForma(id) { const d = $(id); limpiarAvisos(); if (!d.open) d.showModal(); d.scrollTo({ top: 0 }); }
+function cerrarForma(id) { const d = $(id); if (d.open) d.close(); }
 
 function el(tag, clase, texto) {
     const e = document.createElement(tag);
@@ -347,8 +352,8 @@ async function cargarTodo() {
  */
 function capturaAMedias() {
     const abierto = id => !$(id).classList.contains('oculto');
-    if (abierto('baPesar') || abierto('veredicto') || abierto('paForma')) return true;
-    if (['pdFormaCarrier', 'pdFormaUnidad', 'pdFormaChofer'].some(abierto)) return true;
+    if (abierto('baPesar') || abierto('veredicto')) return true;
+    if (['paForma', 'pdFormaCarrier', 'pdFormaUnidad', 'pdFormaChofer'].some(id => $(id).open)) return true;
     if (estado.pestana === 'puerta' && ['puManifiesto', 'puPlaca', 'puPlacaPlana', 'puChoferNombre', 'puMotivo'].some(id => $(id).value.trim())) return true;
     return false;
 }
@@ -1000,7 +1005,7 @@ function barraAvance({ rec, esp }) {
     return d;
 }
 function pintarPrealtas() {
-    $('paForma').classList.add('oculto'); $('paDetalle').classList.add('oculto');
+    cerrarForma('paForma'); $('paDetalle').classList.add('oculto');
     $('btnNuevaPrealta').classList.toggle('oculto', !PUEDE.capturarPrealta(estado.rol));
     // Un Estado que no sea uno de los tres cae en cerradas para que no desaparezca de la vista;
     // ahi su etiqueta lo delata (abajo se pinta cuando no coincide con el grupo).
@@ -1041,13 +1046,12 @@ function pintarPrealtas() {
 }
 
 function nuevaPrealta() {
-    $('paForma').classList.remove('oculto');
     opciones($('paCarrier'), estado.carriers.filter(c => c.Activo !== false), c => c.id, c => c.Title);
     pintarUnidadesChoferesPrealta();
     for (const id of ['paTitulo', 'paGenerador', 'paGeneradorRegistro', 'paPozo', 'paFecha', 'paGondolas', 'paCorreoFecha', 'paCorreoRemitente', 'paNotas']) $(id).value = '';
     $('paCorriente').value = '';
     pintarEstadoPrealta();
-    $('paForma').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    abrirForma('paForma');
 }
 function pintarUnidadesChoferesPrealta() {
     const cid = Number($('paCarrier').value);
@@ -1101,6 +1105,7 @@ async function guardarPrealta() {
         });
         const nuevo = await estado.cliente.crearRenglon(estado.siteId, L.prealtas, campos);
         estado.prealtas.push(nuevo);
+        cerrarForma('paForma');
         avisar('Pre-alta guardada como borrador. Falta la firma del validador.', 'bien');
         pintarPrealtas();
     } catch (e) { avisar('No se pudo guardar: ' + e.message, 'error'); }
@@ -1300,7 +1305,7 @@ const normaliza = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]
 function pintarPadron() {
     const puede = PUEDE.capturarPrealta(estado.rol);
     for (const id of ['btnNuevoCarrier', 'btnNuevaUnidad', 'btnNuevoChofer']) $(id).classList.toggle('oculto', !puede);
-    for (const id of ['pdFormaCarrier', 'pdFormaUnidad', 'pdFormaChofer']) $(id).classList.add('oculto');
+    for (const id of ['pdFormaCarrier', 'pdFormaUnidad', 'pdFormaChofer']) cerrarForma(id);
     estado.padronEdit = null;
     abrirGruposPadronEscritorio();
     const sel = estado.padronCarrier;
@@ -1488,12 +1493,11 @@ function abrirFormaPadron(clave, x = null) {
     if (x) llenarFormaPadron(clave, x); else vaciarFormaPadron(clave);
     tituloFormaPadron(clave);
     $(FORMA_PADRON[clave].grupo).open = true;
-    $(FORMA_PADRON[clave].forma).classList.remove('oculto');
-    $(FORMA_PADRON[clave].forma).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    abrirForma(FORMA_PADRON[clave].forma);
 }
 function cerrarFormaPadron(clave) {
     estado.padronEdit = null; tituloFormaPadron(clave);
-    $(FORMA_PADRON[clave].forma).classList.add('oculto');
+    cerrarForma(FORMA_PADRON[clave].forma);
 }
 // Para el PATCH: lo vacío va como null para que SharePoint lo borre; `limpiar()` lo omitiría y el dato viejo sobreviviría.
 function paraPatch(campos) { const o = {}; for (const k in campos) o[k] = campos[k] === '' || campos[k] === undefined ? null : campos[k]; return o; }
@@ -1533,7 +1537,7 @@ async function guardarPadron(clave) {
             const nuevo = await estado.cliente.crearRenglon(estado.siteId, L[clave], limpiar(campos));
             estado[clave].push(nuevo);
             if (clave === 'carriers' && nuevo.VigenciaASEA) await altaVigencia(`Autorización ASEA transporte · ${nuevo.Title}`, 'tercero', 'carrier', 'legal', nuevo.VigenciaASEA, nuevo.FolioOficio);
-            vaciarFormaPadron(clave);
+            vaciarFormaPadron(clave); cerrarFormaPadron(clave);
             avisarAlta(AVISO_ALTA[clave], clave, nuevo); pintarPadron();
         }
     } catch (e) { avisar('No se pudo guardar: ' + e.message, 'error'); }
@@ -1807,7 +1811,9 @@ $('btnImprimir').addEventListener('click', () => window.print());
 $('btnNuevaPrealta').addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); $('paGrupoBorradores').open = true; nuevaPrealta(); });
 $('paCarrier').addEventListener('change', pintarUnidadesChoferesPrealta);
 $('btnGuardarPrealta').addEventListener('click', guardarPrealta);
-$('btnCancelarPrealta').addEventListener('click', () => $('paForma').classList.add('oculto'));
+$('btnCancelarPrealta').addEventListener('click', () => cerrarForma('paForma'));
+// Escape cierra el <dialog> sin pasar por Cancelar: la edicion pendiente del padron se suelta igual.
+for (const clave of Object.keys(FORMA_PADRON)) $(FORMA_PADRON[clave].forma).addEventListener('close', () => { if (estado.padronEdit && estado.padronEdit.clave === clave) estado.padronEdit = null; });
 $('btnFirmar').addEventListener('click', firmarPrealta);
 $('btnCerrarPrealta').addEventListener('click', cerrarPrealta);
 $('btnEliminarPrealta').addEventListener('click', eliminarPrealta);

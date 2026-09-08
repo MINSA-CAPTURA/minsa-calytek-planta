@@ -202,50 +202,6 @@
         <summary><span class="ic bo">BO</span><span class="t"><b>Borradores</b><small id="paResBorradores"></small></span><button id="btnNuevaPrealta" class="alta" type="button">+ Nueva</button><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary>
         <div class="gcuerpo">
           <div id="paBorradores"></div>
-      <div class="tarjeta forma oculto" id="paForma">
-        <h2 id="paFormaTitulo">Nueva pre-alta</h2>
-        <!-- Cuatro bloques numerados, el mismo lenguaje que la puerta (I4 de la auditoría del 7-sep). Los ids no cambiaron. -->
-        <div class="bloque" id="paBloque1">
-          <div class="bt"><span class="bn">1</span><h2>Programa</h2><span class="est" id="paEst1"></span></div>
-          <div class="campo"><label for="paTitulo">Nombre del programa</label><input type="text" id="paTitulo" placeholder="Cliente · Pozo · mes"></div>
-          <div class="campo"><label for="paCorriente">Corriente</label>
-            <select id="paCorriente">
-              <option value="">— elige —</option>
-              <option value="base-agua">Recorte base agua</option>
-              <option value="base-aceite">Recorte base aceite</option>
-              <option value="fluidos-base-agua">Fluido agotado base agua</option>
-              <option value="fluidos-base-aceite">Fluido agotado base aceite</option>
-            </select></div>
-        </div>
-        <div class="bloque" id="paBloque2">
-          <div class="bt"><span class="bn">2</span><h2>Generador y origen</h2><span class="est" id="paEst2"></span></div>
-          <div class="campo"><label for="paGenerador">Generador (razón social)</label><input type="text" id="paGenerador"></div>
-          <div class="dos">
-            <div class="campo"><label for="paGeneradorRegistro">No. registro ASEA</label><input type="text" id="paGeneradorRegistro" class="mono" placeholder="09-ASEA-GRME-1971-2019"></div>
-            <div class="campo"><label for="paPozo">Pozo / instalación</label><input type="text" id="paPozo"></div>
-          </div>
-        </div>
-        <div class="bloque" id="paBloque3">
-          <div class="bt"><span class="bn">3</span><h2>Transporte</h2><span class="est" id="paEst3"></span></div>
-          <div class="campo"><label for="paCarrier">Carrier (del padrón)</label><select id="paCarrier"></select></div>
-          <div class="campo"><span class="etiqueta-campo">Unidades autorizadas</span><div id="paUnidades"></div></div>
-          <div class="campo"><span class="etiqueta-campo">Choferes autorizados</span><div id="paChoferes"></div></div>
-        </div>
-        <div class="bloque" id="paBloque4">
-          <div class="bt"><span class="bn">4</span><h2>Logística y correo</h2><span class="est" id="paEst4"></span></div>
-          <div class="dos">
-            <div class="campo"><label for="paFecha">Primer envío (estimado)</label><input type="text" id="paFecha" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
-            <div class="campo"><label for="paGondolas">Góndolas esperadas</label><input type="number" id="paGondolas" min="0"></div>
-          </div>
-          <div class="dos">
-            <div class="campo"><label for="paCorreoFecha">Fecha del correo del cliente</label><input type="text" id="paCorreoFecha" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
-            <div class="campo"><label for="paCorreoRemitente">Remitente</label><input type="text" id="paCorreoRemitente"></div>
-          </div>
-          <div class="campo"><label for="paNotas">Notas</label><textarea id="paNotas"></textarea></div>
-        </div>
-        <button id="btnGuardarPrealta" class="principal enviar" type="button">Guardar como borrador</button>
-        <button id="btnCancelarPrealta" class="secundario" type="button">Cancelar</button>
-      </div>
         </div>
       </details>
       <details class="grupo" id="paGrupoFirmadas">
@@ -279,24 +235,6 @@
         <summary><span class="ic ca">CA</span><span class="t"><b>Carriers</b><small id="pdResCarriers"></small></span><button id="btnNuevoCarrier" class="alta" type="button">+ Alta</button><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary>
         <div class="gcuerpo">
           <div id="pdCarriers"></div>
-      <div class="tarjeta forma oculto" id="pdFormaCarrier">
-        <h2>Alta de carrier</h2>
-        <div class="campo"><label for="pcTitle">Razón social</label><input type="text" id="pcTitle"></div>
-        <div class="campo"><label for="pcAut">No. autorización ASEA de transporte</label><input type="text" id="pcAut" class="mono" placeholder="00-ASEA-T-RME-00-00"></div>
-        <div class="campo"><label for="pcVig">Vigencia de la autorización</label><input type="text" id="pcVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
-        <div class="campo"><label for="pcFolio">Folio del oficio ASEA</label><input type="text" id="pcFolio" class="mono" placeholder="UGI-DEMO-0000-2025"></div>
-        <div class="campo"><span class="etiqueta-campo">Corrientes que ampara el oficio</span>
-          <label class="chk"><input type="checkbox" value="base-agua" name="pcCorr"> Recorte base agua</label>
-          <label class="chk"><input type="checkbox" value="base-aceite" name="pcCorr"> Recorte base aceite</label>
-          <label class="chk"><input type="checkbox" value="fluidos-base-agua" name="pcCorr"> Fluido agotado base agua</label>
-          <label class="chk"><input type="checkbox" value="fluidos-base-aceite" name="pcCorr"> Fluido agotado base aceite</label>
-        </div>
-        <div class="campo"><label for="pcSCT">No. registro SCT</label><input type="text" id="pcSCT"></div>
-        <div class="campo"><label for="pcCSF">Vigencia CSF</label><input type="text" id="pcCSF" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
-          <p class="pista">Si se deja vacía, cada góndola de este carrier sale como <b>Espera</b> (excepción comercial) hasta capturarla.</p></div>
-        <button id="btnGuardarCarrier" class="principal enviar" type="button">Guardar</button>
-        <button id="btnCancelarCarrier" class="secundario" type="button">Cancelar</button>
-      </div>
         </div>
       </details>
       <details class="grupo" id="pdGrupoUnidades">
@@ -304,48 +242,12 @@
         <div class="gcuerpo">
           <p class="pista sin-margen">Transcritas del oficio. Una placa que no está aquí no está amparada: se abre el oficio, nunca se agrega de memoria.</p>
           <div id="pdUnidades"></div>
-      <div class="tarjeta forma oculto" id="pdFormaUnidad">
-        <h2>Alta de unidad</h2>
-        <div class="campo"><label for="puuCarrier">Carrier</label><select id="puuCarrier"></select></div>
-        <div class="dos">
-          <div class="campo"><label for="puuPlaca">Placa tractor</label><input type="text" id="puuPlaca" class="mono" autocapitalize="characters"></div>
-          <div class="campo"><label for="puuPlana">Placa plana / caja</label><input type="text" id="puuPlana" class="mono" autocapitalize="characters"></div>
-        </div>
-        <div class="campo"><label for="puuTipo">Tipo</label><select id="puuTipo"><option value="gondola">Góndola</option><option value="tracto-plana">Tracto-plana</option><option value="caja">Caja</option><option value="otro">Otro</option></select></div>
-        <div class="campo"><label for="puuFolio">Folio del oficio que la ampara (obligatorio)</label><input type="text" id="puuFolio" class="mono"></div>
-        <div class="campo"><label for="puuCap">Capacidad (kg)</label><input type="number" id="puuCap" min="0"></div>
-        <div class="dos">
-          <div class="campo"><label for="puuSerie">No. de serie</label><input type="text" id="puuSerie"></div>
-          <div class="campo"><label for="puuMarca">Marca / modelo</label><input type="text" id="puuMarca"></div>
-        </div>
-        <div class="dos">
-          <div class="campo"><label for="puuTarjeta">Tarjeta de circulación</label><input type="text" id="puuTarjeta"></div>
-          <div class="campo"><label for="puuTarjetaVig">Vigencia</label><input type="text" id="puuTarjetaVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
-        </div>
-        <div class="dos">
-          <div class="campo"><label for="puuPoliza">Póliza</label><input type="text" id="puuPoliza"></div>
-          <div class="campo"><label for="puuPolizaVig">Vigencia</label><input type="text" id="puuPolizaVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
-        </div>
-        <button id="btnGuardarUnidad" class="principal enviar" type="button">Guardar</button>
-        <button id="btnCancelarUnidad" class="secundario" type="button">Cancelar</button>
-      </div>
         </div>
       </details>
       <details class="grupo" id="pdGrupoChoferes">
         <summary><span class="ic ch">CH</span><span class="t"><b>Choferes</b><small id="pdResChoferes"></small></span><button id="btnNuevoChofer" class="alta" type="button">+ Alta</button><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary>
         <div class="gcuerpo">
           <div id="pdChoferes"></div>
-      <div class="tarjeta forma oculto" id="pdFormaChofer">
-        <h2>Alta de chofer</h2>
-        <div class="campo"><label for="pchCarrier">Carrier</label><select id="pchCarrier"></select></div>
-        <div class="campo"><label for="pchNombre">Nombre completo</label><input type="text" id="pchNombre" autocapitalize="words"></div>
-        <div class="dos">
-          <div class="campo"><label for="pchLic">No. de licencia</label><input type="text" id="pchLic"></div>
-          <div class="campo"><label for="pchLicVig">Vigencia</label><input type="text" id="pchLicVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
-        </div>
-        <button id="btnGuardarChofer" class="principal enviar" type="button">Guardar</button>
-        <button id="btnCancelarChofer" class="secundario" type="button">Cancelar</button>
-      </div>
         </div>
       </details>
       </div>
@@ -397,6 +299,118 @@
     <button id="tkCerrar" class="secundario" type="button">Cerrar</button>
     <button id="tkImprimir" class="principal" type="button">Imprimir / guardar PDF</button>
   </div>
+</dialog>
+<!-- Formularios de alta en pop-up (v0.19.8, pedido de Carlos): pre-alta y padrón se capturan en un
+     <dialog> modal, no en una tarjeta desplegada dentro del acordeón. Los ids de los campos no cambiaron. -->
+<dialog id="paForma" class="dlg dlg-forma" aria-label="Nueva pre-alta">
+        <h2 id="paFormaTitulo">Nueva pre-alta</h2>
+        <div class="dlg-avisos" aria-live="polite"></div>
+        <!-- Cuatro bloques numerados, el mismo lenguaje que la puerta (I4 de la auditoría del 7-sep). Los ids no cambiaron. -->
+        <div class="bloque" id="paBloque1">
+          <div class="bt"><span class="bn">1</span><h2>Programa</h2><span class="est" id="paEst1"></span></div>
+          <div class="campo"><label for="paTitulo">Nombre del programa</label><input type="text" id="paTitulo" placeholder="Cliente · Pozo · mes"></div>
+          <div class="campo"><label for="paCorriente">Corriente</label>
+            <select id="paCorriente">
+              <option value="">— elige —</option>
+              <option value="base-agua">Recorte base agua</option>
+              <option value="base-aceite">Recorte base aceite</option>
+              <option value="fluidos-base-agua">Fluido agotado base agua</option>
+              <option value="fluidos-base-aceite">Fluido agotado base aceite</option>
+            </select></div>
+        </div>
+        <div class="bloque" id="paBloque2">
+          <div class="bt"><span class="bn">2</span><h2>Generador y origen</h2><span class="est" id="paEst2"></span></div>
+          <div class="campo"><label for="paGenerador">Generador (razón social)</label><input type="text" id="paGenerador"></div>
+          <div class="dos">
+            <div class="campo"><label for="paGeneradorRegistro">No. registro ASEA</label><input type="text" id="paGeneradorRegistro" class="mono" placeholder="09-ASEA-GRME-1971-2019"></div>
+            <div class="campo"><label for="paPozo">Pozo / instalación</label><input type="text" id="paPozo"></div>
+          </div>
+        </div>
+        <div class="bloque" id="paBloque3">
+          <div class="bt"><span class="bn">3</span><h2>Transporte</h2><span class="est" id="paEst3"></span></div>
+          <div class="campo"><label for="paCarrier">Carrier (del padrón)</label><select id="paCarrier"></select></div>
+          <div class="campo"><span class="etiqueta-campo">Unidades autorizadas</span><div id="paUnidades"></div></div>
+          <div class="campo"><span class="etiqueta-campo">Choferes autorizados</span><div id="paChoferes"></div></div>
+        </div>
+        <div class="bloque" id="paBloque4">
+          <div class="bt"><span class="bn">4</span><h2>Logística y correo</h2><span class="est" id="paEst4"></span></div>
+          <div class="dos">
+            <div class="campo"><label for="paFecha">Primer envío (estimado)</label><input type="text" id="paFecha" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+            <div class="campo"><label for="paGondolas">Góndolas esperadas</label><input type="number" id="paGondolas" min="0"></div>
+          </div>
+          <div class="dos">
+            <div class="campo"><label for="paCorreoFecha">Fecha del correo del cliente</label><input type="text" id="paCorreoFecha" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+            <div class="campo"><label for="paCorreoRemitente">Remitente</label><input type="text" id="paCorreoRemitente"></div>
+          </div>
+          <div class="campo"><label for="paNotas">Notas</label><textarea id="paNotas"></textarea></div>
+        </div>
+        <div class="dlg-botones">
+          <button id="btnCancelarPrealta" class="secundario" type="button">Cancelar</button>
+          <button id="btnGuardarPrealta" class="principal" type="button">Guardar como borrador</button>
+        </div>
+</dialog>
+<dialog id="pdFormaCarrier" class="dlg dlg-forma" aria-label="Alta de carrier">
+        <h2>Alta de carrier</h2>
+        <div class="dlg-avisos" aria-live="polite"></div>
+        <div class="campo"><label for="pcTitle">Razón social</label><input type="text" id="pcTitle"></div>
+        <div class="campo"><label for="pcAut">No. autorización ASEA de transporte</label><input type="text" id="pcAut" class="mono" placeholder="00-ASEA-T-RME-00-00"></div>
+        <div class="campo"><label for="pcVig">Vigencia de la autorización</label><input type="text" id="pcVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+        <div class="campo"><label for="pcFolio">Folio del oficio ASEA</label><input type="text" id="pcFolio" class="mono" placeholder="UGI-DEMO-0000-2025"></div>
+        <div class="campo"><span class="etiqueta-campo">Corrientes que ampara el oficio</span>
+          <label class="chk"><input type="checkbox" value="base-agua" name="pcCorr"> Recorte base agua</label>
+          <label class="chk"><input type="checkbox" value="base-aceite" name="pcCorr"> Recorte base aceite</label>
+          <label class="chk"><input type="checkbox" value="fluidos-base-agua" name="pcCorr"> Fluido agotado base agua</label>
+          <label class="chk"><input type="checkbox" value="fluidos-base-aceite" name="pcCorr"> Fluido agotado base aceite</label>
+        </div>
+        <div class="campo"><label for="pcSCT">No. registro SCT</label><input type="text" id="pcSCT"></div>
+        <div class="campo"><label for="pcCSF">Vigencia CSF</label><input type="text" id="pcCSF" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
+          <p class="pista">Si se deja vacía, cada góndola de este carrier sale como <b>Espera</b> (excepción comercial) hasta capturarla.</p></div>
+        <div class="dlg-botones">
+          <button id="btnCancelarCarrier" class="secundario" type="button">Cancelar</button>
+          <button id="btnGuardarCarrier" class="principal" type="button">Guardar</button>
+        </div>
+</dialog>
+<dialog id="pdFormaUnidad" class="dlg dlg-forma" aria-label="Alta de unidad">
+        <h2>Alta de unidad</h2>
+        <div class="dlg-avisos" aria-live="polite"></div>
+        <div class="campo"><label for="puuCarrier">Carrier</label><select id="puuCarrier"></select></div>
+        <div class="dos">
+          <div class="campo"><label for="puuPlaca">Placa tractor</label><input type="text" id="puuPlaca" class="mono" autocapitalize="characters"></div>
+          <div class="campo"><label for="puuPlana">Placa plana / caja</label><input type="text" id="puuPlana" class="mono" autocapitalize="characters"></div>
+        </div>
+        <div class="campo"><label for="puuTipo">Tipo</label><select id="puuTipo"><option value="gondola">Góndola</option><option value="tracto-plana">Tracto-plana</option><option value="caja">Caja</option><option value="otro">Otro</option></select></div>
+        <div class="campo"><label for="puuFolio">Folio del oficio que la ampara (obligatorio)</label><input type="text" id="puuFolio" class="mono"></div>
+        <div class="campo"><label for="puuCap">Capacidad (kg)</label><input type="number" id="puuCap" min="0"></div>
+        <div class="dos">
+          <div class="campo"><label for="puuSerie">No. de serie</label><input type="text" id="puuSerie"></div>
+          <div class="campo"><label for="puuMarca">Marca / modelo</label><input type="text" id="puuMarca"></div>
+        </div>
+        <div class="dos">
+          <div class="campo"><label for="puuTarjeta">Tarjeta de circulación</label><input type="text" id="puuTarjeta"></div>
+          <div class="campo"><label for="puuTarjetaVig">Vigencia</label><input type="text" id="puuTarjetaVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+        </div>
+        <div class="dos">
+          <div class="campo"><label for="puuPoliza">Póliza</label><input type="text" id="puuPoliza"></div>
+          <div class="campo"><label for="puuPolizaVig">Vigencia</label><input type="text" id="puuPolizaVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+        </div>
+        <div class="dlg-botones">
+          <button id="btnCancelarUnidad" class="secundario" type="button">Cancelar</button>
+          <button id="btnGuardarUnidad" class="principal" type="button">Guardar</button>
+        </div>
+</dialog>
+<dialog id="pdFormaChofer" class="dlg dlg-forma" aria-label="Alta de chofer">
+        <h2>Alta de chofer</h2>
+        <div class="dlg-avisos" aria-live="polite"></div>
+        <div class="campo"><label for="pchCarrier">Carrier</label><select id="pchCarrier"></select></div>
+        <div class="campo"><label for="pchNombre">Nombre completo</label><input type="text" id="pchNombre" autocapitalize="words"></div>
+        <div class="dos">
+          <div class="campo"><label for="pchLic">No. de licencia</label><input type="text" id="pchLic"></div>
+          <div class="campo"><label for="pchLicVig">Vigencia</label><input type="text" id="pchLicVig" class="fecha mono" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+        </div>
+        <div class="dlg-botones">
+          <button id="btnCancelarChofer" class="secundario" type="button">Cancelar</button>
+          <button id="btnGuardarChofer" class="principal" type="button">Guardar</button>
+        </div>
 </dialog>
 <dialog id="dlg" class="dlg">
   <form method="dialog">
