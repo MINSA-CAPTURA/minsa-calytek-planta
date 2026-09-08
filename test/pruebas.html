@@ -318,6 +318,17 @@ try {
         document.querySelector('#paBorradores .renglon button').click();
         await esperar(() => visible('paDetalle'), 'detalle del borrador');
         R.ok('el detalle de un borrador ofrece Editar', visible('btnEditarPrealta'));
+        // Desde Hoy, «Ver» abre el pop-up y Cerrar deja la pestaña en Hoy (v0.19.16).
+        clic('btnVolverPrealtas');
+        document.querySelector('#pestanas button[data-p="hoy"]').click();
+        const verHoy = document.querySelector('#tbPendientes .renglon button');
+        R.ok('Hoy › Pendiente revisar lista el borrador con Ver', !!verHoy && $('tbPendientesTarjeta').classList.contains('alerta'));
+        verHoy.click(); await esperar(() => visible('paDetalle'), 'detalle desde Hoy');
+        clic('btnVolverPrealtas');
+        R.ok('cerrar el detalle abierto desde Hoy se queda en Hoy', !visible('paDetalle') && visible('p-hoy') && !visible('p-prealtas'));
+        document.querySelector('#pestanas button[data-p="prealtas"]').click();
+        document.querySelector('#paBorradores .renglon button').click();
+        await esperar(() => visible('paDetalle'), 'detalle del borrador otra vez');
         clic('btnEditarPrealta'); await esperar(() => $('paForma').open, 'formulario de edición');
         R.ok('el formulario abre con los datos del borrador', $('paTitulo').value === 'Cliente Demo · Pozo-1 · oct-2026' && $('paPozo').value === 'Pozo-1' && $('paCarrier').value === String(carrierId));
         poner('paPozo', 'Pozo-2'); poner('paGondolas', '12'); clic('btnGuardarPrealta');

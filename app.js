@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion, prealtaSinMovimiento } from './reglas.js';
 
-const VERSION = '0.19.15';
+const VERSION = '0.19.16';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -1138,7 +1138,8 @@ async function guardarPrealta() {
             Object.assign(edit, cambios);
             estado.prealtaEdit = null;
             cerrarForma('paForma');
-            pintarPrealtas(); verPrealta(edit);
+            if (estado.pestana === 'prealtas') pintarPrealtas(); else pintarInsignias();
+            verPrealta(edit);
             avisar('Borrador actualizado. Sigue pendiente de firma.', 'bien');   // al final: abrir el detalle limpia los avisos
             return;
         }
@@ -1161,6 +1162,12 @@ async function guardarPrealta() {
     finally { $('btnGuardarPrealta').disabled = false; }
 }
 
+// Tras firmar / cerrar / eliminar: se cierra el pop-up y se repinta la pestana que esta abierta (Hoy o Pre-altas) sin
+// borrar el aviso. Antes saltaba a Pre-altas aunque se hubiera abierto desde Hoy (Carlos, 2026-09-08).
+function trasCambioPrealta() {
+    cerrarForma('paDetalle'); pintarInsignias();
+    ({ hoy: pintarHoy, puerta: pintarPuerta, bascula: pintarBascula, prealtas: pintarPrealtas, padron: pintarPadron })[estado.pestana]();
+}
 function verPrealta(p) {
     estado.prealtaAbierta = p;
     abrirForma('paDetalle');   // antes de los avisos: con el dialog abierto, avisar() los pinta adentro
@@ -1218,7 +1225,7 @@ async function eliminarPrealta() {
         await estado.cliente.borrarRenglon(estado.siteId, L.prealtas, p.id);
         estado.prealtas = estado.prealtas.filter(x => x.id !== p.id);
         estado.prealtaAbierta = null;
-        avisar('Borrador eliminado.', 'bien'); pintarInsignias(); pintarPrealtas();
+        avisar('Borrador eliminado.', 'bien'); trasCambioPrealta();
     } catch (e) { avisar('No se pudo eliminar: ' + e.message, 'error'); }
 }
 
@@ -1232,7 +1239,7 @@ async function firmarPrealta() {
         const campos = { Estado: 'firmada', FirmadaPor: estado.cuenta.username, FirmadaEl: new Date().toISOString() };
         await estado.cliente.actualizarRenglon(estado.siteId, L.prealtas, p.id, campos);
         Object.assign(p, campos);
-        avisar('Pre-alta firmada.', 'bien'); pintarInsignias(); pintarPrealtas();
+        avisar('Pre-alta firmada.', 'bien'); trasCambioPrealta();
     } catch (e) { avisar('No se pudo firmar: ' + e.message, 'error'); }
 }
 async function cerrarPrealta() {
@@ -1251,7 +1258,7 @@ async function cerrarPrealta() {
             delete campos.CerradaPor; delete campos.CerradaEl;
             avisar('Programa cerrado, pero sin registrar quién: la lista PLANTA_Prealtas no tiene todavía CerradaPor / CerradaEl (setup, tarea 10).', 'ojo');
         }
-        Object.assign(p, campos); pintarPrealtas();
+        Object.assign(p, campos); trasCambioPrealta();
     } catch (e) { avisar('No se pudo cerrar: ' + e.message, 'error'); }
 }
 
@@ -1747,8 +1754,8 @@ function pintarHoy() {
     $('tbPendientesTarjeta').classList.toggle('alerta', nPend > 0);
     $('tbPendientesN').classList.toggle('oculto', !nPend); $('tbPendientesN').textContent = String(nPend);
     if (!nPend) pf.appendChild(el('p', 'vacio', 'Nada pendiente.'));
-    for (const { p, sm } of dormidas) pf.appendChild(renglon(`Programa · ${p.Title}`, `${sm.motivo} · ¿se cierra? Sigue saliendo en la puerta`, 'Ver', () => { irA('prealtas'); verPrealta(p); }));
-    for (const p of borradores) { const d = diasPara(p.FechaEstimada); pf.appendChild(renglon(`Pre-alta · ${p.Title}`, `firma del validador · 1er envío ${fechaCorta(p.FechaEstimada)}${d !== null ? ` (en ${d} días)` : ''} · capturó ${p.CapturadaPor || '?'}`, 'Ver', () => { irA('prealtas'); verPrealta(p); })); }
+    for (const { p, sm } of dormidas) pf.appendChild(renglon(`Programa · ${p.Title}`, `${sm.motivo} · ¿se cierra? Sigue saliendo en la puerta`, 'Ver', () => verPrealta(p)));
+    for (const p of borradores) { const d = diasPara(p.FechaEstimada); pf.appendChild(renglon(`Pre-alta · ${p.Title}`, `firma del validador · 1er envío ${fechaCorta(p.FechaEstimada)}${d !== null ? ` (en ${d} días)` : ''} · capturó ${p.CapturadaPor || '?'}`, 'Ver', () => verPrealta(p))); }
     for (const e of pendientes) pf.appendChild(renglon(`Excepción · ${e.PlacaTractor}`, `autorización de gerencia · ${horaCorta(e.Arribo)}`));
 
     const rj = $('tbRechazos'); rj.textContent = '';
