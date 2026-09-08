@@ -204,7 +204,7 @@ async function esperar(fn, que, ms = 8000) {
     while (Date.now() - t0 < ms) { try { const v = fn(); if (v) return v; } catch (_) {} await dormir(25); }
     throw new Error('tiempo agotado esperando: ' + que);
 }
-const visible = id => !$(id).classList.contains('oculto') && !$(id).hidden;
+const visible = id => $(id).tagName === 'DIALOG' ? $(id).open : !$(id).classList.contains('oculto') && !$(id).hidden;
 const avisoCon = texto => [...document.querySelectorAll('#avisos .mensaje')].find(m => m.textContent.includes(texto));
 const clic = id => $(id).click();
 const poner = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event('input', { bubbles: true })); $(id).dispatchEvent(new Event('change', { bubbles: true })); };
