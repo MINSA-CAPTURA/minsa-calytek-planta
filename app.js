@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion } from './reglas.js';
 
-const VERSION = '0.19.6';
+const VERSION = '0.19.7';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -340,7 +340,19 @@ async function cargarTodo() {
  * entrar: gerencia con «Hoy» abierto toda la manana no veia la excepcion nueva, y el basculista no
  * veia la gondola que la caseta acababa de registrar en otro celular (auditoria 2026-09-05).
  * Corre por el boton Actualizar y solo al volver a la app tras un rato (visibilitychange).
+ *//**
+ * Hay una captura a medias en pantalla: repintar la pestana la borraria. Antes solo protegia el pesaje y el
+ * veredicto; el alta de un carrier en el celular se perdia a los 2 minutos por el refresco automatico y al
+ * volver a la app (Carlos, 2026-09-08). Cubre todo formulario abierto y la puerta con algo tecleado.
  */
+function capturaAMedias() {
+    const abierto = id => !$(id).classList.contains('oculto');
+    if (abierto('baPesar') || abierto('veredicto') || abierto('paForma')) return true;
+    if (['pdFormaCarrier', 'pdFormaUnidad', 'pdFormaChofer'].some(abierto)) return true;
+    if (estado.pestana === 'puerta' && ['puManifiesto', 'puPlaca', 'puPlacaPlana', 'puChoferNombre', 'puMotivo'].some(id => $(id).value.trim())) return true;
+    return false;
+}
+
 let recargando = false;
 async function recargar(silencioso = false) {
     if (recargando || !estado.siteId) return;
@@ -352,9 +364,7 @@ async function recargar(silencioso = false) {
         await cargarTodo();
         estado.rol = rolDe(estado.cuenta.username, estado.roles);
         ponerQuien(`${estado.cuenta.username} · ${estado.rol}`);
-        const enPesaje = !$('baPesar').classList.contains('oculto');
-        const conVeredicto = !$('veredicto').classList.contains('oculto');
-        if (!enPesaje && !conVeredicto) irA(estado.pestana);   // no pisar una captura a medias
+        if (!capturaAMedias()) irA(estado.pestana);   // no pisar una captura a medias
         else pintarInsignias();
         if (!silencioso) avisar('Datos actualizados.', 'bien');
     } catch (e) {
