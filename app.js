@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion } from './reglas.js';
 
-const VERSION = '0.19.10';
+const VERSION = '0.19.11';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -398,6 +398,10 @@ function irA(p) {
 
 function pintarPuerta() {
     const firmadas = estado.prealtas.filter(p => p.Estado === 'firmada');
+    // Aviso informativo: pre-altas en borrador (sin firma) — la puerta no las ve en el selector hasta que se firmen.
+    const borradores = estado.prealtas.filter(p => p.Estado === 'borrador');
+    const pp = $('puPendientes'); pp.classList.toggle('oculto', !borradores.length);
+    if (borradores.length) pp.textContent = `${borradores.length === 1 ? 'Hay 1 pre-alta por firmar' : `Hay ${borradores.length} pre-altas por firmar`}: ${borradores.map(p => p.Title).join(' · ')}. Sus góndolas no pueden entrar hasta que el validador firme.`;
     opciones($('puPrealta'), firmadas, p => p.id, p => `${p.Title} · ${p.Corriente || '?'} · ${nombreDe(estado.carriers, p.CarrierId)}`);
     pintarChoferesPuerta();
     pintarUnidadesPuerta();

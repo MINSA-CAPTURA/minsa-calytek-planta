@@ -329,6 +329,10 @@ try {
         R.ok('rol sin captura: no hay botón Nueva pre-alta', !visible('btnNuevaPrealta'));
     }
     const prealtaId = filas('prealtas')[0].id;
+    // Aviso informativo en la puerta mientras el borrador no se firma (v0.19.11).
+    document.querySelector('#pestanas button[data-p="puerta"]').click();
+    R.ok('la puerta avisa que hay una pre-alta por firmar', visible('puPendientes') && $('puPendientes').textContent.includes('1 pre-alta por firmar'), $('puPendientes').textContent);
+    document.querySelector('#pestanas button[data-p="prealtas"]').click();
 
     if (['validador', 'gerencia'].includes(ROL)) {
         document.querySelector('#paBorradores .renglon button').click();
@@ -347,6 +351,7 @@ try {
         // Recargar el estado desde el servidor si el rol no capturo (lo sembramos por fuera).
         document.querySelector('#pestanas button[data-p="puerta"]').click();
         if (!$('puPrealta').options.length || $('puPrealta').options.length < 2) { if ($('btnActualizar')) { clic('btnActualizar'); await dormir(300); document.querySelector('#pestanas button[data-p="puerta"]').click(); } }
+        R.ok('firmada la pre-alta, la puerta ya no avisa pendientes de firma', !visible('puPendientes'));
         elegirPorTexto('puPrealta', 'Cliente Demo'); await dormir(20);
         poner('puManifiesto', 'MINSA/RME/000/2026'); poner('puPlaca', '55XY9K'); poner('puPlacaPlana', '66ZW3M');
         elegirPorTexto('puChofer', 'JUAN'); poner('puCorriente', 'base-aceite'); $('pu79').checked = true;
