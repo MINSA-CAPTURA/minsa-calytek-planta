@@ -102,8 +102,10 @@ export function compuerta(p) {
     // 4. Unidad: placa amparada por el oficio (padron seccion 4, LEGAL). Dos placas, dos veces.
     if (!p.unidad) legal('Placa', `la placa ${placaNormal(p.placaTractor)} no esta en el padron: abrir el oficio, nunca darla de alta a mano`);
     else {
-        if (!String(p.unidad.FolioOficio || '').trim()) legal('Placa amparada', 'la unidad no tiene folio de oficio que la ampare');
-        else ok('Placa amparada', `oficio ${p.unidad.FolioOficio}`);
+        // El folio de la unidad hereda el del carrier si va vacio (v0.19.9): la placa se transcribio de ese mismo oficio.
+        const folio = String(p.unidad.FolioOficio || (p.carrier && p.carrier.FolioOficio) || '').trim();
+        if (!folio) legal('Placa amparada', 'ni la unidad ni el carrier tienen folio de oficio que la ampare');
+        else ok('Placa amparada', `oficio ${folio}`);
         if (p.placaPlana && placaNormal(p.unidad.PlacaPlana) !== placaNormal(p.placaPlana)) {
             legal('Placa de la plana', `se leyo ${placaNormal(p.placaPlana)} y el padron tiene ${placaNormal(p.unidad.PlacaPlana) || '(vacia)'}`);
         }

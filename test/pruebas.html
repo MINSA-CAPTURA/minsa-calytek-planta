@@ -283,10 +283,16 @@ try {
     const choferId = filas('choferes')[0].id;
     R.ok('chofer guardado', !!choferId);
 
-    // Alta sin folio de oficio: debe negarse.
+    // Alta sin folio de oficio (v0.19.9): se acepta y hereda el folio del carrier.
     clic('btnNuevaUnidad'); poner('puuCarrier', String(carrierId)); poner('puuPlaca', 'ZZ9999'); poner('puuFolio', '');
+    clic('btnGuardarUnidad'); await esperar(() => filas('unidades').length === 2, 'unidad sin folio guardada');
+    R.ok('unidad sin folio hereda el oficio del carrier', filas('unidades')[1].fields.FolioOficio === 'UGI-DEMO-0000-2025', filas('unidades')[1].fields.FolioOficio);
+    // La unidad de prueba se retira del Graph falso y se relee: el resto del recorrido cuenta UNA unidad.
+    filas('unidades').pop(); clic('btnActualizar'); await dormir(50); await esperar(() => !$('btnActualizar').disabled, 'recarga tras la unidad sin folio');
+    // Sin placa sigue negandose.
+    clic('btnNuevaUnidad'); poner('puuCarrier', String(carrierId)); poner('puuPlaca', '');
     clic('btnGuardarUnidad'); await dormir(100);
-    R.ok('unidad sin folio de oficio se rechaza', !!avisoCon('folio del oficio son obligatorios') && filas('unidades').length === 1);
+    R.ok('unidad sin placa se rechaza', !!avisoCon('Carrier y placa son obligatorios') && filas('unidades').length === 1);
     clic('btnCancelarUnidad');
     } else {
         // Los botones estan ocultos; un clic programatico tampoco debe escribir (defensa en la funcion).

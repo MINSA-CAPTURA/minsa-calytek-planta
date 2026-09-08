@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion } from './reglas.js';
 
-const VERSION = '0.19.8';
+const VERSION = '0.19.9';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -1135,7 +1135,7 @@ function verPrealta(p) {
         if (p.Corriente && lista(carrier.Corrientes).length && !lista(carrier.Corrientes).includes(p.Corriente)) hallazgos.push({ clase: 'legal', regla: 'Corriente', detalle: `el oficio del carrier no ampara ${p.Corriente}` });
     } else hallazgos.push({ clase: 'legal', regla: 'Carrier', detalle: 'sin carrier' });
     for (const id of lista(p.UnidadesIds)) { const u = porId(estado.unidades, id); if (!u) continue;
-        if (!u.FolioOficio) hallazgos.push({ clase: 'legal', regla: `Unidad ${u.Title}`, detalle: 'sin folio de oficio que la ampare' });
+        if (!u.FolioOficio && !(carrier && carrier.FolioOficio)) hallazgos.push({ clase: 'legal', regla: `Unidad ${u.Title}`, detalle: 'sin folio de oficio que la ampare (ni en la unidad ni en el carrier)' });
         for (const [n, f] of [['tarjeta', u.TarjetaVigencia], ['póliza', u.PolizaVigencia]]) { const h = evaluarVigencia(`Unidad ${u.Title} · ${n}`, f, 'comercial', CONFIG.avisoVigenciaDias); if (h) hallazgos.push(h); } }
     for (const id of lista(p.ChoferesIds)) { const ch = porId(estado.choferes, id); if (!ch) continue;
         const h = evaluarVigencia(`Chofer ${ch.Title} · licencia`, ch.LicenciaVigencia, 'comercial', CONFIG.avisoVigenciaDias); if (h) hallazgos.push(h); }
@@ -1452,16 +1452,22 @@ function leerFormaPadron(clave) {
         RegistroSCT: $('pcSCT').value.trim(), CSFVigencia: aIsoDia($('pcCSF').value), Activo: true };
     if (clave === 'unidades') return {
         Title: placaNormal($('puuPlaca').value), PlacaPlana: placaNormal($('puuPlana').value), CarrierId: Number($('puuCarrier').value),
-        TipoUnidad: $('puuTipo').value, FolioOficio: $('puuFolio').value.trim(), CapacidadKg: $('puuCap').value ? Number($('puuCap').value) : null,
+        TipoUnidad: $('puuTipo').value, FolioOficio: folioUnidad($('puuFolio').value, $('puuCarrier').value), CapacidadKg: $('puuCap').value ? Number($('puuCap').value) : null,
         NumeroSerie: $('puuSerie').value.trim(), Marca: $('puuMarca').value.trim(), TarjetaCirc: $('puuTarjeta').value.trim(), TarjetaVigencia: aIsoDia($('puuTarjetaVig').value),
         Poliza: $('puuPoliza').value.trim(), PolizaVigencia: aIsoDia($('puuPolizaVig').value), Activo: true };
     return {
         Title: $('pchNombre').value.trim(), CarrierId: Number($('pchCarrier').value), Licencia: $('pchLic').value.trim(),
         LicenciaVigencia: aIsoDia($('pchLicVig').value), Activo: true };
 }
+// v0.19.9 (Carlos, 2026-09-08): el folio por unidad era redundante — cada placa se transcribe del oficio del carrier.
+// Vacio hereda el folio del carrier; se teclea solo cuando la unidad la ampara un alcance distinto.
+function folioUnidad(tecleado, carrierId) {
+    const t = String(tecleado || '').trim(); if (t) return t;
+    const c = porId(estado.carriers, carrierId); return c && c.FolioOficio ? String(c.FolioOficio).trim() : '';
+}
 function validarFormaPadron(clave) {
     if (clave === 'carriers' && !$('pcTitle').value.trim()) return 'Falta la razón social.';
-    if (clave === 'unidades' && (!$('puuCarrier').value || !$('puuPlaca').value.trim() || !$('puuFolio').value.trim())) return 'Carrier, placa y folio del oficio son obligatorios: sin oficio la unidad no está amparada.';
+    if (clave === 'unidades' && (!$('puuCarrier').value || !$('puuPlaca').value.trim())) return 'Carrier y placa son obligatorios.';
     if (clave === 'choferes' && (!$('pchCarrier').value || !$('pchNombre').value.trim())) return 'Carrier y nombre son obligatorios.';
     return null;
 }
