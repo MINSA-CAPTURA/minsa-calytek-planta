@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion, prealtaSinMovimiento } from './reglas.js';
 
-const VERSION = '0.19.18';
+const VERSION = '0.19.19';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -1088,7 +1088,7 @@ function editarPrealta() {
     abrirForma('paForma');
 }
 /**
- * Nombre del programa = CLIENTE-POZO-MES, en mayusculas (Carlos, 2026-09-08: «GSM-IXACHI 15-2026»). Las tres partes se
+ * Nombre del programa = CLIENTE-POZO-AÑO, en mayusculas (el 3er campo era «mes» hasta la v0.19.18; id paMes se conserva) (Carlos, 2026-09-08: «GSM-IXACHI 15-2026»). Las tres partes se
  * capturan por separado y paTitulo (oculto) se arma solo; los guiones dentro de una parte se cambian por espacio para
  * que el nombre se pueda volver a partir al editar. El pozo del titulo rellena «Pozo / instalacion» si esta vacio.
  */
@@ -1122,7 +1122,7 @@ function marcados(id) { return [...$(id).querySelectorAll('input:checked')].map(
 // I4 (7-sep): cada bloque de la pre-alta dice si esta completo o que le falta, igual que la puerta.
 // Solo el 1 y el 3 tienen obligatorios (los mismos que valida guardarPrealta); el 2 y el 4 son opcionales y lo dicen.
 const BLOQUES_PREALTA = [
-    ['paBloque1', 'paEst1', ['paCliente', 'paPozoTitulo', 'paMes', 'paCorriente'], [], 'faltan cliente, pozo, mes o corriente'],
+    ['paBloque1', 'paEst1', ['paCliente', 'paPozoTitulo', 'paMes', 'paCorriente'], [], 'faltan cliente, pozo, año o corriente'],
     ['paBloque2', 'paEst2', [], ['paGenerador', 'paGeneradorRegistro', 'paPozo'], 'opcional'],
     ['paBloque3', 'paEst3', ['paCarrier'], [], 'falta el carrier'],
     ['paBloque4', 'paEst4', [], ['paFecha', 'paGondolas', 'paCorreoFecha', 'paCorreoRemitente'], 'opcional'],
@@ -1142,7 +1142,7 @@ $('paForma').addEventListener('change', pintarEstadoPrealta);
 
 async function guardarPrealta() {
     if (!PUEDE.capturarPrealta(estado.rol)) { avisar('Tu rol no captura pre-altas.', 'error'); return; }
-    if (!$('paTitulo').value.trim() || !$('paCorriente').value || !$('paCarrier').value) { avisar('Faltan cliente, pozo o mes del programa, la corriente o el carrier.', 'error'); return; }
+    if (!$('paTitulo').value.trim() || !$('paCorriente').value || !$('paCarrier').value) { avisar('Faltan cliente, pozo o año del programa, la corriente o el carrier.', 'error'); return; }
     $('btnGuardarPrealta').disabled = true;
     const edit = estado.prealtaEdit && estado.prealtaEdit.Estado === 'borrador' ? estado.prealtaEdit : null;
     try {
