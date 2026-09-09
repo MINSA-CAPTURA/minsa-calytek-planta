@@ -67,6 +67,8 @@
     <!-- HOY -->
     <section id="p-hoy" class="oculto">
       <header class="cabecera"><span class="k" id="hoyKicker">Hoy</span><h1 id="hoyTitulo">Hoy</h1></header>
+      <!-- D2 (2026-09-08): carril Puerta -> Bascula -> Ticket con el conteo del dia; lo llena pintarInsignias. -->
+      <div class="flujo" id="flujoHoy" aria-label="Flujo del día"><span data-e="puerta"><b>0</b>Puerta</span><span data-e="bascula"><b>0</b>Báscula</span><span data-e="ticket"><b>0</b>Ticket</span></div>
       <div id="hoyFranja" class="franja oculto"></div>
       <!-- Pendiente revisar (v0.19.15, Carlos): lo que espera a una persona va ARRIBA de los KPI y en ambar
            mientras haya algo; sin nada, se queda discreta. -->
@@ -91,6 +93,7 @@
     <!-- PUERTA -->
     <section id="p-puerta" class="oculto">
       <header class="cabecera"><span class="k">Puerta · paso 1 de 3</span><h1>Qué llegó</h1></header>
+      <div class="flujo" aria-hidden="true"><span class="on">Puerta</span><span>Báscula</span><span>Ticket</span></div>
       <!-- Solo informa (Carlos, 2026-09-08): borradores sin firmar; la puerta no puede recibir sus gondolas. -->
       <p id="puPendientes" class="mensaje ojo oculto" role="status"></p>
       <!-- Tres bloques numerados (G3) + la lista viva de reglas (G4), elegidas por Carlos 2026-09-05.
@@ -145,7 +148,8 @@
 
     <!-- BASCULA -->
     <section id="p-bascula" class="oculto">
-      <header class="cabecera"><span class="k">Báscula</span><h1>En planta</h1></header>
+      <header class="cabecera"><span class="k">Báscula · paso 2 de 3</span><h1>En planta</h1></header>
+      <div class="flujo" aria-hidden="true"><span class="done">Puerta</span><span class="on">Báscula</span><span>Ticket</span></div>
       <div class="tarjeta">
         <p class="pista sin-margen">Góndolas que pasaron la compuerta y no han cerrado su folio.</p>
         <div id="baLista"></div>

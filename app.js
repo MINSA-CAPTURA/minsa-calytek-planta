@@ -13,7 +13,7 @@ import { crearCliente } from './graph.js';
 import { comprimir } from './imagen.js';
 import { compuerta, siguienteFolio, avisoNeto, placaNormal, fechaMexico, slug, rolDe, PUEDE, lista, diasPara, evaluarVigencia, accionCorreccion, prealtaSinMovimiento } from './reglas.js';
 
-const VERSION = '0.19.20';
+const VERSION = '0.20.0';
 const $ = id => document.getElementById(id);
 const L = CONFIG.listas;
 
@@ -279,6 +279,17 @@ function pintarInsignias() {
     const p = estado.prealtas.filter(x => x.Estado === 'borrador').length;
     $('nBascula').textContent = String(b); $('nBascula').hidden = b === 0;
     $('nPrealtas').textContent = String(p); $('nPrealtas').hidden = p === 0 || !PUEDE.firmarPrealta(estado.rol);
+    // D2 (2026-09-08): carril Puerta -> Bascula -> Ticket en «Hoy». Puerta = gondolas registradas hoy (sin las anuladas),
+    // Bascula = las que estan en planta (misma definicion que la insignia), Ticket = las cerradas hoy.
+    const flujo = $('flujoHoy');
+    if (flujo) {
+        const hoy = fechaMexico(new Date());
+        const deHoy = estado.embarques.filter(e => e.Etapa !== 'anulado' && e.Arribo && fechaMexico(new Date(e.Arribo)) === hoy);
+        const pon = (k, v) => { const b = flujo.querySelector(`[data-e="${k}"] b`); if (b) b.textContent = String(v); };
+        pon('puerta', deHoy.length);
+        pon('bascula', b);
+        pon('ticket', deHoy.filter(e => e.Etapa === 'cerrado').length);
+    }
 }
 
 // ---------------------------------------------------------------- carga acotada (cubeta 3)
@@ -495,12 +506,25 @@ function pintarPrevioPuerta() {
                      ['puBloque3', 'puEst3', ['puManifiesto', 'puCorriente'], 'falta el manifiesto o la corriente']];
     for (const [bloque, est, ids, pendiente] of bloques) {
         const ok = lleno(ids);
+        const n = ids.filter(id => !String($(id).value).trim()).length;
         $(bloque).classList.toggle('listo', ok);
-        $(est).textContent = ok ? 'completo' : pendiente;
+        // D2 (2026-09-08): el estado cuenta lo que falta; el detalle («falta la placa») queda en el title.
+        $(est).textContent = ok ? 'Listo' : n === 1 ? 'Falta 1' : `Faltan ${n}`;
+        $(est).title = ok ? '' : pendiente;
     }
 
     const decide = e.resultado === 'rechazo-legal' ? 'legal' : e.resultado === 'excepcion-comercial' ? 'comercial' : null;
     pintarHallazgos($('puPrevioReglas'), e.hallazgos, faltan.length ? null : decide);
+
+    // D2 (2026-09-08): el boton dice «Faltan 2 datos · el manifiesto, la corriente» hasta que todo esta capturado.
+    // Sigue siendo el mismo boton y sigue corriendo la compuerta: solo cambia lo que dice.
+    const btn = $('btnCompuerta');
+    btn.classList.toggle('incompleto', faltan.length > 0);
+    btn.textContent = '';
+    if (faltan.length) {
+        btn.appendChild(document.createTextNode(faltan.length === 1 ? 'Falta 1 dato' : `Faltan ${faltan.length} datos`));
+        btn.appendChild(el('small', '', faltan.join(', ')));
+    } else btn.textContent = 'Correr la compuerta';
 
     const cuenta = $('puPrevioCuenta');
     cuenta.classList.remove('v-ok', 'v-warn', 'v-bad');
