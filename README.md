@@ -1,7 +1,7 @@
 # calytek-planta (código)
 
 PWA de control de recepción de la planta CALYTEK de MINSA ENERGY. Este directorio es un repo
-propio (público, `MINSA-CAPTURA/minsa-calytek-planta`, servido por GitHub Pages); la documentación, el plan y el setup viven en el acervo del holding
+propio (público, `MINSA-ENERGY/minsa-calytek-planta`, servido por GitHub Pages); la documentación, el plan y el setup viven en el acervo del holding
 (`proyectos/calytek-planta-app/docs/`).
 
 ```bash
